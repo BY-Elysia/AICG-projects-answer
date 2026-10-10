@@ -1,0 +1,85 @@
+# CMake build trees and generated files (at any project depth)
+build/
+out/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+CMakeSettings.json
+CMakeUserPresets.json
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+install_manifest.txt
+build.ninja
+.ninja_deps
+.ninja_log
+rules.ninja
+
+# Compiled objects, libraries, and executables
+*.o
+*.lo
+*.la
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+*.pdb
+*.ilk
+*.dSYM/
+
+# Visual Studio and Visual Studio Code
+.vs/
+.vscode/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.user
+*.suo
+*.ncb
+*.opendb
+*.VC.db
+
+# Other IDEs
+.idea/
+*.iml
+
+# Dependency and package-manager output
+_deps/
+vcpkg_installed/
+conanbuild/
+conan_generators/
+
+# Python virtual environments, bytecode, and tool caches
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+htmlcov/
+
+# Coverage and profiling output
+*.gcda
+*.gcno
+*.gcov
+*.profraw
+*.profdata
+coverage/
+
+# Logs and operating-system files
+*.log
+.DS_Store
+Thumbs.db

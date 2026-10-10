@@ -1,0 +1,35 @@
+# Normalize text files to LF in the repository.
+* text=auto eol=lf
+
+# Windows-native project and script files retain CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.sln text eol=crlf
+*.vcxproj text eol=crlf
+*.vcxproj.filters text eol=crlf
+
+# Text-based model assets.
+*.gltf text eol=lf
+*.obj text eol=lf
+*.mtl text eol=lf
+
+# Treat common binary assets as binary.
+*.bmp binary
+*.dds binary
+*.gif binary
+*.ico binary
+*.jpeg binary
+*.jpg binary
+*.hdr binary
+*.ktx binary
+*.ktx2 binary
+*.png binary
+*.tga binary
+*.webp binary
+*.glb binary
+*.bin binary
+*.spv binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
