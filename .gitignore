@@ -51,6 +51,7 @@ rules.ninja
 *.iml
 
 # Dependency and package-manager output
+/vcpkg/
 _deps/
 vcpkg_installed/
 conanbuild/
