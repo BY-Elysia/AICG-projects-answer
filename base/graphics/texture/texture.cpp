@@ -41,11 +41,13 @@ Texture& Texture::operator=(Texture&& rhs) noexcept {
 }
 
 void Texture::bindTextureUnit(uint32_t texUnit) const {
-    glBindTextureUnit(texUnit, m_handle);
+    glActiveTexture(GL_TEXTURE0 + texUnit);
+    glBindTexture(getNativeType(), m_handle);
 }
 
-void Texture::unbindTextureUnit(uint32_t texUnit) {
-    glBindTextureUnit(texUnit, 0);
+void Texture::unbindTextureUnit(uint32_t texUnit) const {
+    glActiveTexture(GL_TEXTURE0 + texUnit);
+    glBindTexture(getNativeType(), 0);
 }
 
 void Texture::clear(ExternalFormat format, PixelType type, void const* data, int level) {

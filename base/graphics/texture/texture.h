@@ -180,7 +180,7 @@ public:
 
     void bindTextureUnit(uint32_t texUnit) const;
 
-    static void unbindTextureUnit(uint32_t texUnit);
+    void unbindTextureUnit(uint32_t texUnit) const;
 
     void clear(ExternalFormat format, PixelType type, void const* data, int level = 0);
 
