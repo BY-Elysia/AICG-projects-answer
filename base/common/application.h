@@ -30,12 +30,18 @@ protected:
 
     Input m_input;
 
+    std::filesystem::path m_assetRootDir;
+
 protected:
     float getDeltaTime() const noexcept {
         return m_deltaTime;
     }
 
     void resetClock() noexcept;
+
+    std::filesystem::path getAssetPath(std::filesystem::path const& relativePath) const {
+        return m_assetRootDir / relativePath;
+    }
 
     virtual void handleEvent(Event& event) = 0;
 

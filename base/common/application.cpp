@@ -4,11 +4,8 @@
 
 Application::Application(Config const& config)
     : m_window(config.windowConfig)
-    , m_input(m_window) {
-    if (!config.assetRootDir.empty()) {
-        std::filesystem::current_path(config.assetRootDir);
-    }
-
+    , m_input(m_window)
+    , m_assetRootDir(config.assetRootDir) {
     m_window.setEventCallback([this](Event& event) { onEvent(event); });
 }
 
