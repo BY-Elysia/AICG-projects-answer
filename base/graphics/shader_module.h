@@ -33,8 +33,6 @@ public:
 public:
     ShaderModule(std::string const& code, Stage stage);
 
-    ShaderModule(std::vector<uint32_t> const& spirv, Stage stage, char const* entrypoint);
-
     ShaderModule(ShaderModule&& rhs) noexcept = default;
 
     ~ShaderModule();

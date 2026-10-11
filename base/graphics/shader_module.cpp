@@ -104,23 +104,6 @@ ShaderModule::ShaderModule(std::string const& code, Stage stage)
     }
 }
 
-ShaderModule::ShaderModule(std::vector<uint32_t> const& spirv, Stage stage, char const* entrypoint)
-    : m_stage{stage} {
-    m_handle = glCreateShader(toNativeStage(stage));
-    checkGLErrors();
-
-    if (m_handle == 0) {
-        throw std::runtime_error("Create OpenGL " + std::string(getStageName(stage)) + " shader failure");
-    }
-
-    glShaderBinary(1,
-                   &m_handle,
-                   GL_SHADER_BINARY_FORMAT_SPIR_V,
-                   spirv.data(),
-                   static_cast<GLsizei>(spirv.size() * sizeof(uint32_t)));
-    glSpecializeShader(m_handle, entrypoint, 0, nullptr, nullptr);
-}
-
 ShaderModule::~ShaderModule() {
     if (m_handle) {
         glDeleteShader(m_handle);
