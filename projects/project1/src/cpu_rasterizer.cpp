@@ -1,8 +1,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include "cpu_rasterizer.h"
 
-#include <chrono>
 #include <limits>
+#include <common/timer.h>
 #include <glm/gtx/exterior_product.hpp>
 
 #include "pbr_shading.h"
@@ -18,7 +18,8 @@ void CpuRasterizer::resizeBackend() {
 RasterizerStats CpuRasterizer::render(
     const std::vector<PreparedTriangle>& triangles, const PbrMaterial& material,
     const FrameState& frame) {
-    const auto start = std::chrono::high_resolution_clock::now();
+    Timer timer;
+    timer.tick();
     // Clear depth to the far plane, clear owners to "no primitive", then paint the background.
     std::fill(m_depthBuffer.begin(), m_depthBuffer.end(), 1.0f);
     std::fill(m_ownerBuffer.begin(), m_ownerBuffer.end(), std::numeric_limits<uint32_t>::max());
@@ -90,7 +91,6 @@ RasterizerStats CpuRasterizer::render(
     m_outputTexture->update(m_color.data(), gfx::Texture::ExternalFormat::RGBA,
                             gfx::Texture::PixelType::Float);
     return {
-        std::chrono::duration<float, std::milli>(std::chrono::high_resolution_clock::now() - start)
-            .count(),
+        static_cast<float>(timer.tock() * 1000.0),
         static_cast<uint32_t>(triangles.size())};
 }
