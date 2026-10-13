@@ -1,13 +1,11 @@
+#define GLM_ENABLE_EXPERIMENTAL
 #include "cpu_rasterizer.h"
 
 #include <chrono>
 #include <limits>
+#include <glm/gtx/exterior_product.hpp>
 
 #include "pbr_shading.h"
-
-float CpuRasterizer::cross2D(const glm::vec2& lhs, const glm::vec2& rhs) noexcept {
-    return lhs.x * rhs.y - lhs.y * rhs.x;
-}
 
 void CpuRasterizer::resizeBackend() {
     // Keep separate depth and primitive-owner buffers, mirroring the GPU visibility resources.
@@ -30,7 +28,7 @@ RasterizerStats CpuRasterizer::render(
         const glm::vec2 a(triangle.vertices[0].screenAndInvW);
         const glm::vec2 b(triangle.vertices[1].screenAndInvW);
         const glm::vec2 c(triangle.vertices[2].screenAndInvW);
-        const float area = cross2D(b - a, c - a);
+        const float area = glm::cross(b - a, c - a);
         if (area <= 0.0f) {
             continue;
         }
@@ -46,8 +44,8 @@ RasterizerStats CpuRasterizer::render(
                 const glm::vec2 sample(float(x) + 0.5f, float(y) + 0.5f);
                 // Cross products test pixel-center coverage and produce barycentric coordinates.
                 glm::vec3 barycentric(
-                    cross2D(c - b, sample - b), cross2D(a - c, sample - c),
-                    cross2D(b - a, sample - a));
+                    glm::cross(c - b, sample - b), glm::cross(a - c, sample - c),
+                    glm::cross(b - a, sample - a));
                 if (barycentric.x < 0.0f || barycentric.y < 0.0f || barycentric.z < 0.0f) {
                     continue;
                 }

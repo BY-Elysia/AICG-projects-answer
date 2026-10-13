@@ -1,3 +1,4 @@
+#define GLM_ENABLE_EXPERIMENTAL
 #include "raster_scene.h"
 #include "texture_utils.h"
 
@@ -7,6 +8,7 @@
 #include <stdexcept>
 
 #include <glm/ext.hpp>
+#include <glm/gtx/exterior_product.hpp>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #define TINYGLTF3_IMPLEMENTATION
@@ -369,7 +371,7 @@ std::vector<PreparedTriangle> RasterScene::prepare(const FrameState& frame) cons
             const glm::vec2 a(output.vertices[0].screenAndInvW);
             const glm::vec2 b(output.vertices[1].screenAndInvW);
             const glm::vec2 c(output.vertices[2].screenAndInvW);
-            if (glm::cross(glm::vec3(b - a, 0.0f), glm::vec3(c - a, 0.0f)).z > 0.0f) {
+            if (glm::cross(b - a, c - a) > 0.0f) {
                 result.push_back(output);
             }
         }

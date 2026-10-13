@@ -26,6 +26,4 @@ private:
     // Recreates the CPU-only visibility and color arrays after Rasterizer resizes its output image.
     void resizeBackend() override;
 
-    // Returns the signed z component of the two-dimensional cross product lhs x rhs.
-    static float cross2D(const glm::vec2& lhs, const glm::vec2& rhs) noexcept;
 };
