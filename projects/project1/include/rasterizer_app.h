@@ -32,7 +32,6 @@ private:
     float m_elapsedSeconds = 0.0f;
     float m_titleSeconds = 0.0f;
     uint32_t m_titleFrames = 0;
-    bool m_uiInitialized = false;
     DirectionalLight m_directionalLight;
 
     void handleEvent(Event& event) override;

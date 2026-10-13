@@ -57,16 +57,13 @@ RasterizerApp::RasterizerApp(Config const& config) : Application(config) {
         throw std::runtime_error("ImGui OpenGL initialization failed");
     }
     ImGui::GetIO().IniFilename = nullptr;
-    m_uiInitialized = true;
     resetClock();
 }
 
 RasterizerApp::~RasterizerApp() {
-    if (m_uiInitialized) {
-        ImGui_ImplOpenGL3_Shutdown();
-        ImGui_ImplGlfw_Shutdown();
-        ImGui::DestroyContext();
-    }
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 }
 
 void RasterizerApp::handleEvent(Event& event) {
