@@ -5,7 +5,7 @@
 #include <scene/camera/camera.h>
 #include <scene/light/light.h>
 #include <graphics/gl_program.h>
-#include "fullscreen_quad.h"
+#include <graphics/vertex_array.h>
 #include "cpu_rasterizer.h"
 #include "gpu_rasterizer.h"
 #include "raster_scene.h"
@@ -26,7 +26,7 @@ private:
     std::unique_ptr<CpuRasterizer> m_cpuRasterizer;
     std::unique_ptr<GpuRasterizer> m_gpuRasterizer;
     std::unique_ptr<gfx::GLProgram> m_displayProgram;
-    std::unique_ptr<FullscreenQuad> m_quad;
+    gfx::VertexArray m_fullscreenVao;
     RasterBackend m_rasterBackend = RasterBackend::Gpu;
     RasterizerStats m_stats;
     float m_elapsedSeconds = 0.0f;

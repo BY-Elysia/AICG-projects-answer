@@ -5,6 +5,7 @@
 #include <common/event/event_dispatcher.h>
 #include <common/event/keyboard_event.h>
 #include <glm/ext.hpp>
+#include <graphics/rhi.h>
 #include "shader_utils.h"
 
 #define GLFW_INCLUDE_NONE
@@ -42,7 +43,6 @@ RasterizerApp::RasterizerApp(Config const& config) : Application(config) {
 
     m_displayProgram = makeDisplayProgram(getAssetPath(DisplayVertexPath),
                                           getAssetPath(DisplayFragmentPath));
-    m_quad = std::make_unique<FullscreenQuad>();
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -125,7 +125,9 @@ void RasterizerApp::renderFrame() {
     m_displayProgram->use();
     const auto displayUnit = m_displayProgram->getTextureBinding("uHdrColor");
     output->bindTextureUnit(displayUnit);
-    m_quad->draw();
+    m_fullscreenVao.bind();
+    gfx::RHI::draw(gfx::RHI::Primitive::Triangles, 0, 3);
+    gfx::VertexArray::unbind();
     output->unbindTextureUnit(displayUnit);
 
     // render UI elements
