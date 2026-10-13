@@ -16,9 +16,8 @@
 #include <imgui_impl_opengl3.h>
 
 constexpr const char* ModelPath = "models/DamagedHelmet.gltf";
-constexpr const char* BinningPath = "shaders/binning.comp";
-constexpr const char* VisibilityPath = "shaders/visibility.comp";
-constexpr const char* ShadingPath = "shaders/shading.comp";
+constexpr const char* VisibilityPath = "shaders/visibility.frag";
+constexpr const char* ShadingPath = "shaders/shading.frag";
 constexpr const char* DisplayVertexPath = "shaders/display.vert";
 constexpr const char* DisplayFragmentPath = "shaders/display.frag";
 constexpr float ModelRotationRadiansPerSecond = 0.5f;
@@ -38,7 +37,7 @@ RasterizerApp::RasterizerApp(Config const& config) : Application(config) {
 
     m_cpuRasterizer = std::make_unique<CpuRasterizer>();
     m_gpuRasterizer = std::make_unique<GpuRasterizer>(
-        getAssetPath(BinningPath).string(), getAssetPath(VisibilityPath).string(),
+        getAssetPath(DisplayVertexPath).string(), getAssetPath(VisibilityPath).string(),
         getAssetPath(ShadingPath).string());
 
     m_displayProgram = makeDisplayProgram(getAssetPath(DisplayVertexPath),
@@ -51,7 +50,7 @@ RasterizerApp::RasterizerApp(Config const& config) : Application(config) {
         ImGui::DestroyContext();
         throw std::runtime_error("ImGui GLFW initialization failed");
     }
-    if (!ImGui_ImplOpenGL3_Init("#version 440")) {
+    if (!ImGui_ImplOpenGL3_Init("#version 410")) {
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
         throw std::runtime_error("ImGui OpenGL initialization failed");
@@ -88,7 +87,7 @@ void RasterizerApp::renderFrame() {
     m_titleSeconds += getDeltaTime();
     ++m_titleFrames;
     if (m_titleSeconds >= 1.0f) {
-        m_window.setTitle(std::format("CPU / GPU Compute Rasterizer | {:.1f} FPS",
+        m_window.setTitle(std::format("CPU / GPU Rasterizer | {:.1f} FPS",
                                      m_titleFrames / m_titleSeconds));
         m_titleSeconds = 0.0f;
         m_titleFrames = 0;
@@ -140,15 +139,18 @@ void RasterizerApp::renderUi() {
     ImGui::NewFrame();
     const ImGuiWindowFlags flags =
         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings;
-    if (ImGui::Begin("Compute Rasterizer", nullptr, flags)) {
+    if (ImGui::Begin("Rasterizer", nullptr, flags)) {
         int mode = static_cast<int>(m_rasterBackend);
         ImGui::RadioButton("CPU", &mode, static_cast<int>(RasterBackend::Cpu));
         ImGui::SameLine();
-        ImGui::RadioButton("GPU compute", &mode, static_cast<int>(RasterBackend::Gpu));
+        ImGui::RadioButton("GPU fragment", &mode, static_cast<int>(RasterBackend::Gpu));
         m_rasterBackend = static_cast<RasterBackend>(mode);
         ImGui::Separator();
         ImGui::Text("triangles: %u", m_stats.triangleCount);
         ImGui::Text("raster time: %.3f ms", m_stats.milliseconds);
+        if (m_rasterBackend == RasterBackend::Gpu) {
+            ImGui::Text("CPU binning: %.3f ms", m_stats.binningMilliseconds);
+        }
         ImGui::ColorEdit3("light color", &m_directionalLight.color.x);
         ImGui::SliderFloat("light intensity", &m_directionalLight.intensity, 0.0f, 20.0f);
     }

@@ -19,12 +19,6 @@ inline gfx::ShaderModule loadShader(std::filesystem::path const& path, gfx::Shad
     }
 }
 
-inline std::unique_ptr<gfx::GLProgram> makeComputeProgram(std::filesystem::path const& path) {
-    std::vector<gfx::ShaderModule> modules;
-    modules.push_back(loadShader(path, gfx::ShaderModule::Stage::Compute));
-    return std::make_unique<gfx::GLProgram>(modules);
-}
-
 inline std::unique_ptr<gfx::GLProgram> makeDisplayProgram(
     std::filesystem::path const& vertexPath, std::filesystem::path const& fragmentPath) {
     std::vector<gfx::ShaderModule> modules;

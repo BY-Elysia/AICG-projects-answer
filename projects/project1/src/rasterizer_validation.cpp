@@ -1,4 +1,5 @@
 #include "rasterizer_app.h"
+#include "tile_binning.h"
 
 #include <algorithm>
 #include <array>
@@ -126,6 +127,25 @@ void RasterizerApp::validateBackends() {
     const auto depthReverse = check("reversed depth order", frame, triangles, simple, true);
     if (depthForward != depthReverse) {
         throw std::runtime_error("Visibility depends on submission order for different depths");
+    }
+    triangles = {testTriangle(0.2f, {0, 1, 0}), testTriangle(0.2f, {0, 0, 1})};
+    const auto tieForward = check("equal depth first owner", frame, triangles, simple, true);
+    std::reverse(triangles.begin(), triangles.end());
+    const auto tieReverse = check("equal depth reversed owner", frame, triangles, simple, true);
+    if (tieForward == tieReverse) {
+        throw std::runtime_error("Equal-depth test did not distinguish the two materials");
+    }
+    // Put the visible triangle after more than 1024 references in the same tile. The old
+    // fixed-capacity GPU list discarded it; variable-length lists must retain every reference.
+    triangles.assign(1300, testTriangle(0.8f, {0, 1, 0}));
+    triangles.push_back(testTriangle(0.2f, {0, 0, 1}));
+    const auto tiles = binTriangles(triangles, frame.extent, 16);
+    if (tiles.ranges.front().y != triangles.size()) {
+        throw std::runtime_error("Crowded tile lost triangle references");
+    }
+    const auto crowded = check("1301 triangles per tile", frame, triangles, simple, true);
+    if (crowded != depthForward) {
+        throw std::runtime_error("Crowded tile did not retain its nearest triangle");
     }
     check("empty scene", frame, {}, simple, false);
 

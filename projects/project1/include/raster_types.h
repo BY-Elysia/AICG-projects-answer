@@ -3,19 +3,17 @@
 #include <array>
 #include <cstdint>
 #include <memory>
-#include <vector>
 
 #include <glm/glm.hpp>
 
 #include <scene/light/light.h>
-#include <glad/glad.h>
 #include <graphics/texture/texture2d.h>
 #include "cpu_texture2d.h"
 
 struct UnifiedTexture2D {
     // CPU texture abstraction owned by the material for CPU rasterizer sampling.
     std::unique_ptr<CpuTexture2D> cpuTexture;
-    // GPU texture object shared with the compute shading pass through the gfx::Texture2D API.
+    // GPU texture object shared with the fragment shading pass through the gfx::Texture2D API.
     std::unique_ptr<gfx::Texture2D> gpuTexture;
 };
 
@@ -54,7 +52,7 @@ struct RasterVertex {
     glm::vec2 uv{0.0f};
 };
 
-/* std430-compatible triangle payload; vec4 fields avoid layout ambiguity across C++ and GLSL. */
+/* Packed triangle payload; fourteen vec4 texels preserve the C++/GLSL record layout. */
 struct alignas(16) PreparedVertex {
     // xy is pixel-space position, z is normalized depth, and w is 1 / clip-space w.
     // The reciprocal is required to perform perspective-correct interpolation in both backends.
@@ -63,7 +61,7 @@ struct alignas(16) PreparedVertex {
     glm::vec4 worldPosition{0.0f};
     // xyz is the unnormalized world-space normal.
     glm::vec4 normal{0.0f, 1.0f, 0.0f, 0.0f};
-    // xy stores UV; vec4 padding preserves std430 alignment.
+    // xy stores UV; vec4 padding preserves packed texel alignment.
     glm::vec4 uv{0.0f};
 };
 
@@ -100,4 +98,7 @@ struct RasterizerStats {
     float milliseconds = 0.0f;
     // Number after clipping; one source triangle can become several.
     uint32_t triangleCount = 0;
+    // GPU mode builds ordered, dynamically sized tile lists on CPU before drawing.
+    // Reported separately from the GPU visibility/shading timer.
+    float binningMilliseconds = 0.0f;
 };

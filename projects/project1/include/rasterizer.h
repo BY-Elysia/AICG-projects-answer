@@ -12,7 +12,7 @@ public:
     virtual ~Rasterizer() = default;
 
     // Resizes the common HDR output image, then lets the selected backend recreate its own
-    // framebuffer or compute resources for the same pixel extent.
+    // framebuffer resources for the same pixel extent.
     void resize(const glm::ivec2& extent) {
         if (extent.x <= 0 || extent.y <= 0) {
             throw std::invalid_argument("Raster extent must be positive");
@@ -37,10 +37,10 @@ public:
         const FrameState& frame) = 0;
 
 protected:
-    // Current raster target dimensions shared by CPU pixel loops and GPU compute dispatches.
+    // Current raster target dimensions shared by CPU pixel loops and GPU fragment passes.
     glm::ivec2 m_extent{0};
 
-    // Shared RGBA16F output image: CPU uploads pixels into it and GPU writes it through imageStore.
+    // Shared RGBA16F output image: CPU uploads pixels into it and GPU writes it as a framebuffer attachment.
     std::unique_ptr<gfx::Texture2D> m_outputTexture;
 
 protected:

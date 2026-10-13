@@ -1,7 +1,4 @@
-#version 440 core
-
-// Unlike the triangle-driven visibility pass, one invocation here owns one output pixel.
-layout(local_size_x = 8, local_size_y = 8) in;
+#version 410 core
 
 struct PreparedVertex {
     // xy stores raster position, z stores depth, and w stores reciprocal clip-space w.
@@ -23,17 +20,32 @@ struct PreparedTriangle {
     vec4 bitangent;
 };
 
-// The same prepared triangle stream consumed by visibility.comp.
-layout(std430, binding = 0) readonly buffer TriangleBuffer { PreparedTriangle triangles[]; };
-// Primitive IDs written by the visibility pass. 0xffffffff represents background.
-layout(r32ui, binding = 1) readonly uniform uimage2D uOwner;
-// HDR render target; display.frag tone-maps it in a later fullscreen pass.
-layout(rgba16f, binding = 0) writeonly uniform image2D uOutput;
+// Packed records produced by the shared CPU frontend, and fragment-pass visibility output.
+uniform sampler2D uTriangles;
+uniform usampler2D uOwner;
+layout(location = 0) out vec4 outColor;
+
+vec4 triangleTexel(uint index) {
+    uint width = uint(textureSize(uTriangles, 0).x);
+    return texelFetch(uTriangles, ivec2(index % width, index / width), 0);
+}
+
+PreparedTriangle readTriangle(uint index) {
+    PreparedTriangle triangle;
+    uint base = index * 14u;
+    for (uint corner = 0u; corner < 3u; ++corner) {
+        triangle.vertices[corner].screenAndInvW = triangleTexel(base + corner * 4u);
+        triangle.vertices[corner].worldPosition = triangleTexel(base + corner * 4u + 1u);
+        triangle.vertices[corner].normal = triangleTexel(base + corner * 4u + 2u);
+        triangle.vertices[corner].uv = triangleTexel(base + corner * 4u + 3u);
+    }
+    triangle.tangent = triangleTexel(base + 12u);
+    triangle.bitangent = triangleTexel(base + 13u);
+    return triangle;
+}
 
 // Valid element count in triangles[]; it validates the owner fetched from uOwner.
 uniform int uTriangleCount;
-// Output dimensions in pixels.
-uniform vec2 uExtent;
 // World-space camera position used to construct the V vector.
 uniform vec3 uCameraPosition;
 // Direction in which directional-light rays travel. Negating it produces surface-to-light L.
@@ -55,12 +67,12 @@ uniform float uOcclusionStrength;
 // Texture-presence flags avoid sampling an undefined slot.
 uniform bool uHasTexture[5];
 // Slots are base color, metallic-roughness, normal, occlusion, and emissive respectively.
-layout(binding = 0) uniform sampler2D uTextures[5];
+uniform sampler2D uTextures[5];
 
 const uint noOwner = 0xffffffffu;
 
 float cross2D(vec2 lhs, vec2 rhs) {
-    // This exactly matches the signed-area convention used by visibility.comp and the CPU path.
+    // This exactly matches the signed-area convention used by visibility.frag and the CPU path.
     return lhs.x * rhs.y - lhs.y * rhs.x;
 }
 
@@ -77,31 +89,31 @@ vec3 srgbToLinear(vec3 value) {
 
 // Evaluates the same separable Smith joint masking-shadowing term as pbr_shading.h.
 float getGeometryTerm(float nDotL, float nDotV, float alphaRoughness) {
-    const float alphaSquared = alphaRoughness * alphaRoughness;
-    const float attenuationL =
+    float alphaSquared = alphaRoughness * alphaRoughness;
+    float attenuationL =
         2.0 * nDotL
         / (nDotL + sqrt(alphaSquared + (1.0 - alphaSquared) * nDotL * nDotL));
-    const float attenuationV =
+    float attenuationV =
         2.0 * nDotV
         / (nDotV + sqrt(alphaSquared + (1.0 - alphaSquared) * nDotV * nDotV));
     return attenuationL * attenuationV;
 }
 
-// Matches pbr::shade() in pbr_shading.h. Compute shaders have no implicit derivatives, and
-// DamagedHelmet's default glTF sampler has no mipmap filter, so textureLod selects level zero.
+// Matches pbr::shade() in pbr_shading.h. Explicit level-zero sampling avoids fragment
+// derivatives changing filtering relative to the CPU backend.
 vec3 shade(
     vec3 worldPosition, vec3 normal, vec3 tangent, vec3 bitangent, vec2 uv) {
     const float kPi = 3.14159265358979323846;
     // Read base color in linear space; metallic-roughness and normal maps remain linear data.
     vec4 baseColor = uBaseColorFactor;
     if (uHasTexture[0]) {
-        const vec4 sampledColor = textureLod(uTextures[0], uv, 0.0);
+        vec4 sampledColor = textureLod(uTextures[0], uv, 0.0);
         baseColor *= vec4(srgbToLinear(sampledColor.rgb), sampledColor.a);
     }
     float roughness = uRoughnessFactor;
     float metallic = uMetallicFactor;
     if (uHasTexture[1]) {
-        const vec4 sampledColor = textureLod(uTextures[1], uv, 0.0);
+        vec4 sampledColor = textureLod(uTextures[1], uv, 0.0);
         roughness *= sampledColor.g;
         metallic *= sampledColor.b;
     }
@@ -111,32 +123,32 @@ vec3 shade(
     // Convert a tangent-space normal-map sample into the interpolated world-space frame.
     normal = normalize(normal);
     if (uHasTexture[2]) {
-        const vec3 tangentNormal = textureLod(uTextures[2], uv, 0.0).xyz * 2.0 - 1.0;
-        const vec3 orthogonalTangent = normalize(tangent - normal * dot(normal, tangent));
+        vec3 tangentNormal = textureLod(uTextures[2], uv, 0.0).xyz * 2.0 - 1.0;
+        vec3 orthogonalTangent = normalize(tangent - normal * dot(normal, tangent));
         normal = normalize(mat3(orthogonalTangent, normalize(bitangent), normal) * tangentNormal);
     }
 
     // Evaluate the metallic-roughness microfacet BRDF for the single directional light.
-    const vec3 viewDirection = normalize(uCameraPosition - worldPosition);
-    const vec3 lightDirection = normalize(-uLightDirection);
-    const vec3 halfway = normalize(viewDirection + lightDirection);
-    const float nDotL = max(dot(normal, lightDirection), 0.0);
-    const float nDotV = max(dot(normal, viewDirection), 0.0);
-    const float nDotH = max(dot(normal, halfway), 0.0);
-    const float vDotH = max(dot(viewDirection, halfway), 0.0);
-    const float alphaRoughness = roughness * roughness;
-    const float alphaSquared = alphaRoughness * alphaRoughness;
-    const float denominator = nDotH * nDotH * (alphaSquared - 1.0) + 1.0;
-    const float distribution = alphaSquared / max(kPi * denominator * denominator, 1e-5);
-    const float geometry = getGeometryTerm(nDotL, nDotV, alphaRoughness);
-    const vec3 f0 = mix(vec3(0.04), baseColor.rgb, metallic);
-    const vec3 fresnel = f0 + (vec3(1.0) - f0) * pow(1.0 - vDotH, 5.0);
-    const vec3 specular = fresnel * distribution * geometry / max(4.0 * nDotL * nDotV, 1e-4);
-    const vec3 diffuse = (vec3(1.0) - fresnel) * (1.0 - metallic) * baseColor.rgb / kPi;
+    vec3 viewDirection = normalize(uCameraPosition - worldPosition);
+    vec3 lightDirection = normalize(-uLightDirection);
+    vec3 halfway = normalize(viewDirection + lightDirection);
+    float nDotL = max(dot(normal, lightDirection), 0.0);
+    float nDotV = max(dot(normal, viewDirection), 0.0);
+    float nDotH = max(dot(normal, halfway), 0.0);
+    float vDotH = max(dot(viewDirection, halfway), 0.0);
+    float alphaRoughness = roughness * roughness;
+    float alphaSquared = alphaRoughness * alphaRoughness;
+    float denominator = nDotH * nDotH * (alphaSquared - 1.0) + 1.0;
+    float distribution = alphaSquared / max(kPi * denominator * denominator, 1e-5);
+    float geometry = getGeometryTerm(nDotL, nDotV, alphaRoughness);
+    vec3 f0 = mix(vec3(0.04), baseColor.rgb, metallic);
+    vec3 fresnel = f0 + (vec3(1.0) - f0) * pow(1.0 - vDotH, 5.0);
+    vec3 specular = fresnel * distribution * geometry / max(4.0 * nDotL * nDotV, 1e-4);
+    vec3 diffuse = (vec3(1.0) - fresnel) * (1.0 - metallic) * baseColor.rgb / kPi;
     vec3 color = (diffuse + specular) * uLightColor * uLightIntensity * nDotL;
     // Ambient occlusion modulates the direct result, then emissive is added without lighting.
     if (uHasTexture[3]) {
-        const float occlusion = textureLod(uTextures[3], uv, 0.0).r;
+        float occlusion = textureLod(uTextures[3], uv, 0.0).r;
         color *= 1.0 + uOcclusionStrength * (occlusion - 1.0);
     }
     vec3 emissive = uEmissiveFactor;
@@ -148,40 +160,32 @@ vec3 shade(
 }
 
 void main() {
-    // Derive the output pixel from this invocation's global coordinates.
-    const ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
-    if (any(greaterThanEqual(pixel, ivec2(uExtent)))) {
-        return;
-    }
-
+    ivec2 pixel = ivec2(gl_FragCoord.xy);
     // The owner attachment identifies the nearest primitive selected by the depth comparison.
-    const uint triangleIndex = imageLoad(uOwner, pixel).r;
-    if (triangleIndex == noOwner) {
-        imageStore(uOutput, pixel, vec4(0.025, 0.03, 0.04, 1.0));
-        return;
-    }
-    if (triangleIndex >= uint(uTriangleCount)) {
+    uint triangleIndex = texelFetch(uOwner, pixel, 0).r;
+    if (triangleIndex == noOwner || triangleIndex >= uint(uTriangleCount)) {
+        outColor = vec4(0.025, 0.03, 0.04, 1.0);
         return;
     }
 
     // Rebuild the winning triangle's affine barycentric coordinates at the pixel center.
-    const PreparedTriangle triangle = triangles[triangleIndex];
-    const vec2 samplePosition = vec2(pixel) + vec2(0.5);
-    const vec2 a = triangle.vertices[0].screenAndInvW.xy;
-    const vec2 b = triangle.vertices[1].screenAndInvW.xy;
-    const vec2 c = triangle.vertices[2].screenAndInvW.xy;
+    PreparedTriangle triangle = readTriangle(triangleIndex);
+    vec2 samplePosition = vec2(pixel) + vec2(0.5);
+    vec2 a = triangle.vertices[0].screenAndInvW.xy;
+    vec2 b = triangle.vertices[1].screenAndInvW.xy;
+    vec2 c = triangle.vertices[2].screenAndInvW.xy;
     vec3 barycentric = vec3(
         cross2D(c - b, samplePosition - b), cross2D(a - c, samplePosition - c),
         cross2D(b - a, samplePosition - a));
-    const float triangleArea = cross2D(b - a, c - a);
+    float triangleArea = cross2D(b - a, c - a);
     barycentric /= triangleArea;
     // Multiply by reciprocal w then normalize, giving perspective-correct interpolation weights.
-    const vec3 corrected = barycentric
+    vec3 corrected = barycentric
                            * vec3(
                                triangle.vertices[0].screenAndInvW.w,
                                triangle.vertices[1].screenAndInvW.w,
                                triangle.vertices[2].screenAndInvW.w);
-    const vec3 weights = corrected / (corrected.x + corrected.y + corrected.z);
+    vec3 weights = corrected / (corrected.x + corrected.y + corrected.z);
     vec3 worldPosition = vec3(0.0);
     vec3 normal = vec3(0.0);
     vec2 uv = vec2(0.0);
@@ -192,7 +196,7 @@ void main() {
         uv += weights[corner] * triangle.vertices[corner].uv.xy;
     }
     // Shade the visible sample with material textures and direct-light PBR.
-    const vec3 color = shade(
+    vec3 color = shade(
         worldPosition, normal, triangle.tangent.xyz, triangle.bitangent.xyz, uv);
-    imageStore(uOutput, pixel, vec4(color, 1.0));
+    outColor = vec4(color, 1.0);
 }

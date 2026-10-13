@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
         }
         Application::Config config{
             .windowConfig{
-                .title = "CPU / GPU Compute Rasterizer",
+                .title = "CPU / GPU Rasterizer",
                 .width = 1280,
                 .height = 720,
                 .vsync = true,
@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
                 .fullscreen = false,
                 .maximize = false,
                 .msaa = false,
-                .driverVersion = {4, 4}},
+                .driverVersion = {4, 1}},
             .assetRootDir = std::filesystem::absolute(argv[0]).parent_path() / "assets"};
         RasterizerApp app{config};
         if (validate) {
