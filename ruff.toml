@@ -1,0 +1,24 @@
+# Shared Python formatting settings for all projects.
+# Format: ruff format projects
+# Check:  ruff format --check projects
+line-length = 120
+indent-width = 4
+
+# Keep Ruff's default exclusions and skip generated / third-party files.
+extend-exclude = [
+    "build",
+    "out",
+    "cmake-build-*",
+    "vcpkg",
+    "vcpkg_installed",
+    "_deps",
+    "conanbuild",
+    "conan_generators",
+]
+force-exclude = true
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+skip-magic-trailing-comma = false
