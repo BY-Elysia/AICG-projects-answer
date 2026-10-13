@@ -26,7 +26,7 @@ RasterizerApp::RasterizerApp(Config const& config) : Application(config) {
     m_scene = std::make_unique<RasterScene>(getAssetPath(ModelPath).string());
 
     m_camera = std::make_unique<PerspectiveCamera>(
-        glm::radians(45.0f), float(m_window.framebufferWidth()) / float(m_window.framebufferHeight()), 0.1f, 100.0f);
+        glm::radians(45.0f), m_window.aspectRatio(), 0.1f, 100.0f);
     m_camera->transform.position = {0.0f, 0.0f, 5.0f};
 
     // Configure a light above the camera-facing left/front quadrant. getFront() below supplies
@@ -86,7 +86,7 @@ void RasterizerApp::renderFrame() {
     if (width == 0 || height == 0) {
         return;
     }
-    m_camera->aspect = float(width) / float(height);
+    m_camera->aspect = m_window.aspectRatio();
     m_elapsedSeconds += getDeltaTime();
     m_titleSeconds += getDeltaTime();
     ++m_titleFrames;

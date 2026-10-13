@@ -62,7 +62,7 @@ RayTracer::RayTracer(Config const& config) : Application{config} {
     // camera
     m_camera = std::make_unique<PerspectiveCamera>(
         glm::radians(60.0f),
-        float(m_window.framebufferWidth()) / float(m_window.framebufferHeight()), 0.1f, 1000.0f);
+        m_window.aspectRatio(), 0.1f, 1000.0f);
     m_lucy = std::make_unique<Model>(getAssetPath("models/lucy.obj"));
     createSpheres();
     createSkybox();
@@ -107,7 +107,7 @@ void RayTracer::renderFrame() {
         createTextures();
         resetAccumulation();
     }
-    m_camera->aspect = float(w) / float(h);
+    m_camera->aspect = m_window.aspectRatio();
 
     gfx::RHI::setViewport({w, h});
     gfx::RHI::enableDepthTest(false);
