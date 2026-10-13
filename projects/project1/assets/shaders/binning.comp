@@ -1,0 +1,105 @@
+#version 440 core
+
+// One invocation assigns one triangle to every screen tile touched by its pixel-space bounding box.
+layout(local_size_x = 1) in;
+
+struct PreparedVertex {
+    // xy is the pixel-space position, z is normalized depth, and w is reciprocal clip-space w.
+    vec4 screenAndInvW;
+
+    // xyz is the world-space position reconstructed later by the shading pass.
+    vec4 worldPosition;
+
+    // xyz is the world-space vertex normal.
+    vec4 normal;
+
+    // xy is the material texture coordinate.
+    vec4 uv;
+};
+
+struct PreparedTriangle {
+    // The three screen-space vertices submitted by the shared CPU scene-preparation stage.
+    PreparedVertex vertices[3];
+
+    // xyz is the world-space tangent used by normal mapping.
+    vec4 tangent;
+
+    // xyz is the world-space bitangent used by normal mapping.
+    vec4 bitangent;
+};
+
+// Shared triangle input. Invocation i processes triangles[i].
+layout(std430, binding = 0) readonly buffer TriangleBuffer { PreparedTriangle triangles[]; };
+
+// Atomic counters select a free element in each tile's fixed-capacity list.
+layout(std430, binding = 1) buffer TileCountBuffer { uint tileCounts[]; };
+
+// Each tile owns uMaxTrianglesPerTile consecutive triangle-index entries.
+layout(std430, binding = 2) buffer TileIndexBuffer { uint tileIndices[]; };
+
+// Number of valid entries in triangles[].
+uniform int uTriangleCount;
+
+// Full render-target dimensions in pixels.
+uniform vec2 uExtent;
+
+// Number of tiles in the horizontal and vertical directions.
+uniform vec2 uTileExtent;
+
+// Pixel width and height of one square tile.
+uniform int uTileSize;
+
+// Maximum number of triangle indices stored for one tile.
+uniform int uMaxTrianglesPerTile;
+
+float cross2D(vec2 lhs, vec2 rhs) {
+    // The signed z component of the two-dimensional cross product lhs x rhs.
+    return lhs.x * rhs.y - lhs.y * rhs.x;
+}
+
+void main() {
+    // One global invocation corresponds to one candidate triangle.
+    const uint triangleIndex = gl_GlobalInvocationID.x;
+
+    // This defensive check keeps the SSBO access valid if dispatch dimensions are rounded up.
+    if (triangleIndex >= uint(uTriangleCount)) {
+        return;
+    }
+
+    const PreparedTriangle triangle = triangles[triangleIndex];
+
+    // These are already in framebuffer pixel coordinates after shared scene preparation.
+    const vec2 a = triangle.vertices[0].screenAndInvW.xy;
+    const vec2 b = triangle.vertices[1].screenAndInvW.xy;
+    const vec2 c = triangle.vertices[2].screenAndInvW.xy;
+
+    // Remove back-facing and degenerate triangles using the same winding convention as visibility.
+    if (cross2D(b - a, c - a) <= 0.0) {
+        return;
+    }
+
+    // Clamp the triangle's conservative pixel bounding box to the render target.
+    const ivec2 minPixel = max(ivec2(floor(min(a, min(b, c)))), ivec2(0));
+    const ivec2 maxPixel = min(ivec2(ceil(max(a, max(b, c)))), ivec2(uExtent) - 1);
+
+    // Integer division maps the pixel bounding box to the inclusive tile range it touches.
+    const ivec2 minTile = minPixel / uTileSize;
+    const ivec2 maxTile = maxPixel / uTileSize;
+
+    // Append this triangle index to each touched tile. Several triangle invocations can append to
+    // the same tile concurrently, so atomicAdd reserves a unique list slot for every attempt.
+    for (int y = minTile.y; y <= maxTile.y; ++y) {
+        for (int x = minTile.x; x <= maxTile.x; ++x) {
+            // Flatten the two-dimensional tile coordinate for the linear SSBO layout.
+            const uint tileIndex = uint(y * int(uTileExtent.x) + x);
+
+            // Increment even after capacity is exceeded, retaining overflow information for tools.
+            const uint slot = atomicAdd(tileCounts[tileIndex], 1u);
+
+            // Overflowing entries are intentionally discarded because every tile list has fixed capacity.
+            if (slot < uint(uMaxTrianglesPerTile)) {
+                tileIndices[tileIndex * uint(uMaxTrianglesPerTile) + slot] = triangleIndex;
+            }
+        }
+    }
+}
