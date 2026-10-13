@@ -342,6 +342,7 @@ static GLint toNativeFormat(Texture::Format format) {
         return GL_COMPRESSED_RG_RGTC2;
     case Texture::Format::CompressSRG_RGTC2:
         return GL_COMPRESSED_SIGNED_RG_RGTC2;
+#if defined(GL_COMPRESSED_RGBA_BPTC_UNORM)
     case Texture::Format::CompressRGBA_BPTC_UN:
         return GL_COMPRESSED_RGBA_BPTC_UNORM;
     case Texture::Format::CompressSRGBA_BPTC_UN:
@@ -350,6 +351,24 @@ static GLint toNativeFormat(Texture::Format format) {
         return GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT;
     case Texture::Format::CompressRGB_BPTC_UF:
         return GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
+#elif defined(GL_COMPRESSED_RGBA_BPTC_UNORM_ARB)
+    // A GL 4.1 loader declares BPTC through the extension names, rather than the
+    // GL 4.2 core names. These are the same tokens; support still depends on the driver.
+    case Texture::Format::CompressRGBA_BPTC_UN:
+        return GL_COMPRESSED_RGBA_BPTC_UNORM_ARB;
+    case Texture::Format::CompressSRGBA_BPTC_UN:
+        return GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM_ARB;
+    case Texture::Format::CompressRGB_BPTC_SF:
+        return GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_ARB;
+    case Texture::Format::CompressRGB_BPTC_UF:
+        return GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_ARB;
+#else
+    case Texture::Format::CompressRGBA_BPTC_UN:
+    case Texture::Format::CompressSRGBA_BPTC_UN:
+    case Texture::Format::CompressRGB_BPTC_SF:
+    case Texture::Format::CompressRGB_BPTC_UF:
+        throw std::runtime_error("BPTC texture formats are unavailable in this OpenGL loader");
+#endif
     }
 
     throw std::runtime_error("Invalid internal texture format");
