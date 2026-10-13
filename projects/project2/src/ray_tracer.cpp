@@ -571,7 +571,7 @@ void RayTracer::initUI() {
         ImGui::DestroyContext();
         throw std::runtime_error("Unable to initialize ImGui GLFW backend");
     }
-    if (!ImGui_ImplOpenGL3_Init("#version 330 core")) {
+    if (!ImGui_ImplOpenGL3_Init("#version 410 core")) {
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
         throw std::runtime_error("Unable to initialize ImGui OpenGL backend");

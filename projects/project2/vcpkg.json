@@ -5,7 +5,7 @@
   "dependencies": [
     {
       "name": "glad",
-      "features": ["gl-api-43", "extensions"]
+      "features": ["gl-api-41", "extensions"]
     },
     "glfw3",
     "glm",

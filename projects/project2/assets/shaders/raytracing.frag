@@ -1,4 +1,4 @@
-#version 330 core
+#version 410 core
 layout (location = 0) out vec4 fragColor;
 layout (location = 1) out uint fragRngState;
 

@@ -14,7 +14,7 @@ static RayTracer::Config parseConfig(int argc, char* argv[]) {
             .maximize = false,
             .msaa = false,
 
-            .driverVersion = {4, 3}
+            .driverVersion = {4, 1}
         },
         .assetRootDir {
             std::filesystem::absolute(argv[0]).parent_path() / "assets"
