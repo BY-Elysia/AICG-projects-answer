@@ -130,7 +130,7 @@ void RayTracer::renderFrame() {
 
     m_presentProgram->use();
     auto const frameUnit = m_presentProgram->getTextureBinding("frame");
-    m_outFrames[m_currentWriteBuffer]->bindTextureUnit(frameUnit);
+    m_outFrames[m_currentWriteBuffer]->bind(frameUnit);
     m_nearestSampler->bind(frameUnit);
     drawScreenQuad();
 
@@ -582,7 +582,7 @@ void RayTracer::createPrimitiveBuffer(std::vector<Sphere> const& spheres,
 void RayTracer::bindSceneTextures() {
     auto bind = [this](gfx::Texture const& texture, char const* name, gfx::Sampler const& sampler) {
         auto const unit = m_rayTracingProgram->getTextureBinding(name);
-        texture.bindTextureUnit(unit);
+        texture.bind(unit);
         sampler.bind(unit);
     };
 

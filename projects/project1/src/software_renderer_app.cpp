@@ -115,12 +115,13 @@ void SoftwareRendererApp::renderFrame() {
     glDisable(GL_SCISSOR_TEST);
     glViewport(0, 0, width, height);
     m_displayProgram->use();
-    auto const displayUnit = m_displayProgram->getTextureBinding("uHdrColor");
-    output.bindTextureUnit(displayUnit);
+    output.bind(m_displayProgram->getTextureBinding("uHdrColor"));
+
     m_fullscreenVao.bind();
     gfx::RHI::draw(gfx::RHI::Primitive::Triangles, 0, 3);
     gfx::VertexArray::unbind();
-    output.unbindTextureUnit(displayUnit);
+
+    output.unbind();
 
     // render UI elements
     renderUi();

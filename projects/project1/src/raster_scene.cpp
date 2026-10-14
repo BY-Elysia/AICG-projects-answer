@@ -14,8 +14,7 @@
 #define TINYGLTF3_ENABLE_FS
 #include <tiny_gltf_v3.h>
 
-namespace {
-tg3_str_int_pair const* findAttribute(tg3_primitive const& primitive, char const* name) {
+static tg3_str_int_pair const* findAttribute(tg3_primitive const& primitive, char const* name) {
     for (uint32_t i = 0; i < primitive.attributes_count; ++i) {
         if (tg3_str_equals_cstr(primitive.attributes[i].key, name)) {
             return &primitive.attributes[i];
@@ -25,7 +24,7 @@ tg3_str_int_pair const* findAttribute(tg3_primitive const& primitive, char const
 }
 
 template <typename T>
-T const*
+static T const*
 attributeData(tg3_model const& model, tg3_primitive const& primitive, char const* name, size_t& count, int& stride) {
     tg3_str_int_pair const* attribute = findAttribute(primitive, name);
     if (!attribute) {
@@ -41,7 +40,7 @@ attributeData(tg3_model const& model, tg3_primitive const& primitive, char const
     return reinterpret_cast<T const*>(model.buffers[view.buffer].data.data + view.byte_offset + accessor.byte_offset);
 }
 
-glm::mat4 nodeTransform(tg3_node const& node) {
+static glm::mat4 nodeTransform(tg3_node const& node) {
     if (node.has_matrix) {
         glm::mat4 matrix(1.0f);
         for (int i = 0; i < 16; ++i) {
@@ -61,7 +60,7 @@ glm::mat4 nodeTransform(tg3_node const& node) {
     return glm::translate(glm::mat4(1.0f), translation) * glm::mat4_cast(rotation) * glm::scale(glm::mat4(1.0f), scale);
 }
 
-std::vector<uint8_t> decodeBase64(tg3_str const& uri) {
+static std::vector<uint8_t> decodeBase64(tg3_str const& uri) {
     std::string const value(uri.data, uri.len);
     size_t const comma = value.find(',');
     if (comma == std::string::npos || value.find(";base64") == std::string::npos) {
@@ -90,7 +89,7 @@ std::vector<uint8_t> decodeBase64(tg3_str const& uri) {
     return bytes;
 }
 
-void loadTexture(tg3_model const& model, int textureIndex, UnifiedTexture2D& target) {
+static void loadTexture(tg3_model const& model, int textureIndex, UnifiedTexture2D& target) {
     if (textureIndex < 0) {
         return;
     }
@@ -139,16 +138,18 @@ void loadTexture(tg3_model const& model, int textureIndex, UnifiedTexture2D& tar
     stbi_image_free(decoded);
 }
 
-Mesh loadPrimitive(tg3_model const& model, tg3_primitive const& primitive) {
+static Mesh loadPrimitive(tg3_model const& model, tg3_primitive const& primitive) {
     if (primitive.mode != -1 && primitive.mode != 4) {
         throw std::runtime_error("rasterizer only supports triangle primitives");
     }
     size_t vertexCount = 0;
     int positionStride = 0;
     float const* positions = attributeData<float>(model, primitive, "POSITION", vertexCount, positionStride);
+
     size_t normalCount = 0;
     int normalStride = 0;
     float const* normals = attributeData<float>(model, primitive, "NORMAL", normalCount, normalStride);
+
     size_t uvCount = 0;
     int uvStride = 0;
     float const* uvs = attributeData<float>(model, primitive, "TEXCOORD_0", uvCount, uvStride);
@@ -204,7 +205,7 @@ Mesh loadPrimitive(tg3_model const& model, tg3_primitive const& primitive) {
     return mesh;
 }
 
-PbrMaterial loadMaterial(tg3_model const& model, tg3_material const& sourceMaterial) {
+static PbrMaterial loadMaterial(tg3_model const& model, tg3_material const& sourceMaterial) {
     PbrMaterial material;
     tg3_pbr_metallic_roughness const& pbr = sourceMaterial.pbr_metallic_roughness;
     material.baseColorFactor = glm::vec4(static_cast<float>(pbr.base_color_factor[0]),
@@ -233,8 +234,9 @@ PbrMaterial loadMaterial(tg3_model const& model, tg3_material const& sourceMater
     return material;
 }
 
-} // namespace
-
+/*************************************************************************************************/
+/*                                         RasterScene                                           */
+/*************************************************************************************************/
 RasterScene::RasterScene(std::filesystem::path const& filePath) {
     load(filePath);
     uploadTextures();

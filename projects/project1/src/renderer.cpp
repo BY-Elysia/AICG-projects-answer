@@ -8,9 +8,8 @@
 #include <glm/ext.hpp>
 #include <glm/gtx/exterior_product.hpp>
 
-namespace {
 // Transform every input vertex once, then assemble indexed triangles from its varyings.
-std::vector<TransformedVertex>
+static std::vector<TransformedVertex>
 transformVertices(Mesh const& mesh, glm::mat4 const& transform, FrameState const& frame) {
     std::vector<TransformedVertex> vertices;
     vertices.reserve(mesh.vertices().size());
@@ -30,7 +29,7 @@ transformVertices(Mesh const& mesh, glm::mat4 const& transform, FrameState const
     return vertices;
 }
 
-TransformedVertex interpolate(TransformedVertex const& a, TransformedVertex const& b, float t) {
+static TransformedVertex interpolate(TransformedVertex const& a, TransformedVertex const& b, float t) {
     return {
         glm::mix(a.clip, b.clip, t),
         glm::mix(a.worldPosition, b.worldPosition, t),
@@ -39,7 +38,7 @@ TransformedVertex interpolate(TransformedVertex const& a, TransformedVertex cons
     };
 }
 
-template <typename Distance> void clipAgainst(std::vector<TransformedVertex>& polygon, Distance distance) {
+template <typename Distance> static void clipAgainst(std::vector<TransformedVertex>& polygon, Distance distance) {
     std::vector<TransformedVertex> result;
     if (polygon.empty()) {
         return;
@@ -62,7 +61,6 @@ template <typename Distance> void clipAgainst(std::vector<TransformedVertex>& po
     }
     polygon = std::move(result);
 }
-} // namespace
 
 void Renderer::resize(glm::ivec2 const& extent) {
     if (extent.x <= 0 || extent.y <= 0) {

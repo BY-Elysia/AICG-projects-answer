@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <span>
 #include <filesystem>
 #include <vector>
 
@@ -17,7 +16,7 @@ public:
 
     RasterScene& operator=(RasterScene const&) = delete;
 
-    std::span<DrawItem const> draws() const {
+    std::vector<DrawItem> const& draws() const {
         return m_draws;
     }
 

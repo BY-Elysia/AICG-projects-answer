@@ -178,9 +178,9 @@ public:
         return m_format;
     };
 
-    void bindTextureUnit(uint32_t texUnit) const;
+    void bind(uint32_t texUnit = 0) const;
 
-    void unbindTextureUnit(uint32_t texUnit) const;
+    void unbind() const;
 
     void clear(ExternalFormat format, PixelType type, void const* data, int level = 0);
 

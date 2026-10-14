@@ -24,11 +24,11 @@ makeRasterTexture(glm::ivec2 extent,
             .isImmutable = false
         },
         data);
-    texture->bindTextureUnit(0);
+    texture->bind(0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, linearRepeat ? GL_LINEAR : GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, linearRepeat ? GL_LINEAR : GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, linearRepeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, linearRepeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-    texture->unbindTextureUnit(0);
+    texture->unbind();
     return texture;
 }

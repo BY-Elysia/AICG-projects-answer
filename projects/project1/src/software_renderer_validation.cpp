@@ -11,23 +11,28 @@
 #include <glad/glad.h>
 #include <glm/ext.hpp>
 
-namespace {
-std::vector<glm::vec4> readOutput(gfx::Texture2D const& texture) {
+struct TestTriangle {
+    float depth;
+    glm::vec3 normal;
+};
+
+static std::vector<glm::vec4> readOutput(gfx::Texture2D const& texture) {
     std::vector<glm::vec4> pixels(size_t(texture.getWidth()) * texture.getHeight());
-    texture.bindTextureUnit(0);
+    texture.bind(0);
     glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, pixels.data());
-    texture.unbindTextureUnit(0);
+    texture.unbind();
+
     return pixels;
 }
 
-float displayValue(float hdr) {
+static float displayValue(float hdr) {
     return std::pow(std::max(hdr, 0.0f) / (std::max(hdr, 0.0f) + 1.0f), 1.0f / 2.2f);
 }
 
-void compareOutputs(std::string const& label,
-                    std::vector<glm::vec4> const& cpu,
-                    std::vector<glm::vec4> const& gpu,
-                    bool expectGeometry) {
+static void compareOutputs(std::string const& label,
+                           std::vector<glm::vec4> const& cpu,
+                           std::vector<glm::vec4> const& gpu,
+                           bool expectGeometry) {
     glm::vec3 const background{0.025f, 0.03f, 0.04f};
     size_t covered = 0, coverageMismatch = 0, largeDifferences = 0;
     double squaredError = 0;
@@ -66,13 +71,8 @@ void compareOutputs(std::string const& label,
     }
 }
 
-struct TestTriangle {
-    float depth;
-    glm::vec3 normal;
-};
-
 // Raw mesh inputs: the renderer must transform, assemble and clip these triangles itself.
-Mesh testMesh(std::vector<TestTriangle> const& triangles) {
+static Mesh testMesh(std::vector<TestTriangle> const& triangles) {
     Mesh mesh;
     auto& vertices = mesh.editVertices();
     auto& indices = mesh.editIndices();
@@ -85,7 +85,6 @@ Mesh testMesh(std::vector<TestTriangle> const& triangles) {
     }
     return mesh;
 }
-} // namespace
 
 void SoftwareRendererApp::validateBackends() {
     auto checkDraws = [this](std::string const& label,
@@ -155,7 +154,7 @@ void SoftwareRendererApp::validateBackends() {
     simple.metallicFactor = 0;
     simple.roughnessFactor = 0.8f;
     RasterScene hierarchy(getAssetPath("models/HierarchyTest.gltf"));
-    auto const hierarchyDraws = hierarchy.draws();
+    auto const& hierarchyDraws = hierarchy.draws();
     if (hierarchyDraws.size() != 4 || hierarchyDraws[0].mesh == hierarchyDraws[1].mesh ||
         hierarchyDraws[2].mesh != hierarchyDraws[3].mesh || hierarchyDraws[0].material == hierarchyDraws[1].material ||
         hierarchyDraws[1].material == hierarchyDraws[2].material ||

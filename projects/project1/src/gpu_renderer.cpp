@@ -82,11 +82,9 @@ void GpuRenderer::transformVertices(Mesh const& mesh, glm::mat4 const& transform
 void GpuRenderer::setMaterial(PbrMaterial const& material) {
     for (int i = 0; i < 5; ++i) {
         if (material.hasTexture[i]) {
-            material.textures[i].gpuTexture->bindTextureUnit(i);
+            material.textures[i].gpuTexture->bind(i);
         }
-        else {
-            gfx::Texture2D::unbindFromTextureUnit(i);
-        }
+
         m_rasterProgram->setUniform(m_hasTextureLocations[i], material.hasTexture[i]);
     }
     m_rasterProgram->setUniform("uBaseColorFactor", material.baseColorFactor);

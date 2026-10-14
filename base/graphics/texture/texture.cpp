@@ -40,13 +40,12 @@ Texture& Texture::operator=(Texture&& rhs) noexcept {
     return *this;
 }
 
-void Texture::bindTextureUnit(uint32_t texUnit) const {
+void Texture::bind(uint32_t texUnit) const {
     glActiveTexture(GL_TEXTURE0 + texUnit);
     glBindTexture(getNativeType(), m_handle);
 }
 
-void Texture::unbindTextureUnit(uint32_t texUnit) const {
-    glActiveTexture(GL_TEXTURE0 + texUnit);
+void Texture::unbind() const {
     glBindTexture(getNativeType(), 0);
 }
 
