@@ -3,7 +3,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string_view>
-#include "rasterizer_app.h"
+#include "software_renderer_app.h"
 
 int main(int argc, char* argv[]) {
     try {
@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
         }
         Application::Config config{
             .windowConfig{
-                .title = "CPU / GPU Rasterizer",
+                .title = "Software Renderer",
                 .width = 1280,
                 .height = 720,
                 .vsync = true,
@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
             },
             .assetRootDir = std::filesystem::absolute(argv[0]).parent_path() / "assets"
         };
-        RasterizerApp app{config};
+        SoftwareRendererApp app{config};
         if (validate) {
             app.validateBackends();
         }

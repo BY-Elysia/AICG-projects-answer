@@ -2,15 +2,16 @@
 
 #include <vector>
 
-#include "rasterizer.h"
+#include "renderer.h"
 
-class CpuRasterizer final : public Rasterizer {
+class CpuRenderer final : public Renderer {
 public:
-    CpuRasterizer() = default;
+    CpuRenderer() = default;
 
-    RasterizerStats render(std::vector<PreparedTriangle> const& triangles,
-                           PbrMaterial const& material,
-                           FrameState const& frame) override;
+protected:
+    RendererStats renderPrepared(std::vector<PreparedTriangle> const& triangles,
+                                 PbrMaterial const& material,
+                                 FrameState const& frame) override;
 
 private:
     // D32F-equivalent software depth buffer. Smaller normalized depth is closer.
@@ -23,6 +24,6 @@ private:
     std::vector<glm::vec4> m_color;
 
 private:
-    // Recreates the CPU-only visibility and color arrays after Rasterizer resizes its output image.
+    // Recreates the CPU-only visibility and color arrays after Renderer resizes its output image.
     void resizeBackend() override;
 };

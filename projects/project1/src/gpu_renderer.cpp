@@ -1,5 +1,6 @@
-#include "gpu_rasterizer.h"
+#include "gpu_renderer.h"
 #include "shader_utils.h"
+#include "texture_utils.h"
 #include "tile_binning.h"
 
 #include <algorithm>
@@ -15,9 +16,9 @@ void setSampler(gfx::GLProgram const& program, char const* name, int unit) {
 }
 } // namespace
 
-GpuRasterizer::GpuRasterizer(std::string const& vertexShader,
-                             std::string const& visibilityShader,
-                             std::string const& shadingShader) {
+GpuRenderer::GpuRenderer(std::string const& vertexShader,
+                         std::string const& visibilityShader,
+                         std::string const& shadingShader) {
     m_visibilityProgram = makeDisplayProgram(vertexShader, visibilityShader);
     m_shadingProgram = makeDisplayProgram(vertexShader, shadingShader);
     setSampler(*m_visibilityProgram, "uTriangles", 0);
@@ -35,13 +36,13 @@ GpuRasterizer::GpuRasterizer(std::string const& vertexShader,
     glGenQueries(1, &m_timeQuery);
 }
 
-GpuRasterizer::~GpuRasterizer() {
+GpuRenderer::~GpuRenderer() {
     if (m_timeQuery) {
         glDeleteQueries(1, &m_timeQuery);
     }
 }
 
-void GpuRasterizer::resizeBackend() {
+void GpuRenderer::resizeBackend() {
     m_ownerTexture = makeRasterTexture(
         m_extent, gfx::Texture::Format::R32UI, gfx::Texture::ExternalFormat::RedInt, gfx::Texture::PixelType::UInt);
     m_visibilityFramebuffer = std::make_unique<gfx::Framebuffer>();
@@ -55,13 +56,13 @@ void GpuRasterizer::resizeBackend() {
     }
 }
 
-void GpuRasterizer::uploadPacked(std::unique_ptr<gfx::Texture2D>& texture,
-                                 size_t texelCount,
-                                 gfx::Texture::Format format,
-                                 gfx::Texture::ExternalFormat pixelFormat,
-                                 gfx::Texture::PixelType type,
-                                 size_t texelBytes,
-                                 void const* data) {
+void GpuRenderer::uploadPacked(std::unique_ptr<gfx::Texture2D>& texture,
+                               size_t texelCount,
+                               gfx::Texture::Format format,
+                               gfx::Texture::ExternalFormat pixelFormat,
+                               gfx::Texture::PixelType type,
+                               size_t texelBytes,
+                               void const* data) {
     // 2D textures avoid depending on a large GL_MAX_TEXTURE_BUFFER_SIZE, which GL 4.1
     // does not guarantee. Padding permits uploading the final partially filled row.
     size_t const width = std::min(size_t{1024}, static_cast<size_t>(m_maxTextureSize));
@@ -79,9 +80,9 @@ void GpuRasterizer::uploadPacked(std::unique_ptr<gfx::Texture2D>& texture,
     texture->update(padded.data(), pixelFormat, type);
 }
 
-RasterizerStats GpuRasterizer::render(std::vector<PreparedTriangle> const& triangles,
-                                      PbrMaterial const& material,
-                                      FrameState const& frame) {
+RendererStats GpuRenderer::renderPrepared(std::vector<PreparedTriangle> const& triangles,
+                                          PbrMaterial const& material,
+                                          FrameState const& frame) {
     if (triangles.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
         throw std::runtime_error("Too many rasterizer triangles");
     }

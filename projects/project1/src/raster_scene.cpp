@@ -1,14 +1,11 @@
-#define GLM_ENABLE_EXPERIMENTAL
 #include "raster_scene.h"
 #include "texture_utils.h"
 
-#include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <stdexcept>
 
 #include <glm/ext.hpp>
-#include <glm/gtx/exterior_product.hpp>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #define TINYGLTF3_IMPLEMENTATION
@@ -141,45 +138,6 @@ void loadTexture(tg3_model const& model, int textureIndex, UnifiedTexture2D& tar
     stbi_image_free(decoded);
 }
 
-struct ClipVertex {
-    glm::vec4 clip;
-    glm::vec3 worldPosition;
-    glm::vec3 normal;
-    glm::vec2 uv;
-};
-
-ClipVertex interpolate(ClipVertex const& a, ClipVertex const& b, float t) {
-    return {
-        glm::mix(a.clip, b.clip, t),
-        glm::mix(a.worldPosition, b.worldPosition, t),
-        glm::normalize(glm::mix(a.normal, b.normal, t)),
-        glm::mix(a.uv, b.uv, t)
-    };
-}
-
-template <typename Distance> void clipAgainst(std::vector<ClipVertex>& polygon, Distance distance) {
-    std::vector<ClipVertex> result;
-    if (polygon.empty()) {
-        return;
-    }
-    ClipVertex previous = polygon.back();
-    float previousDistance = distance(previous);
-    for (ClipVertex const& current : polygon) {
-        float const currentDistance = distance(current);
-        bool const currentInside = currentDistance >= 0.0f;
-        bool const previousInside = previousDistance >= 0.0f;
-        if (currentInside != previousInside) {
-            float const t = previousDistance / (previousDistance - currentDistance);
-            result.push_back(interpolate(previous, current, t));
-        }
-        if (currentInside) {
-            result.push_back(current);
-        }
-        previous = current;
-        previousDistance = currentDistance;
-    }
-    polygon = std::move(result);
-}
 } // namespace
 
 RasterScene::RasterScene(std::string const& filePath) {
@@ -242,34 +200,30 @@ void RasterScene::load(std::string const& filePath) {
         throw std::runtime_error("DamagedHelmet must contain POSITION, NORMAL and TEXCOORD_0");
     }
 
-    glm::mat4 const transform = nodeTransform(node);
-    glm::mat3 const normalTransform = glm::transpose(glm::inverse(glm::mat3(transform)));
-    m_vertices.reserve(vertexCount);
+    m_mesh.transform = nodeTransform(node);
+    m_mesh.vertices.reserve(vertexCount);
     for (size_t i = 0; i < vertexCount; ++i) {
         auto const* p =
             reinterpret_cast<float const*>(reinterpret_cast<uint8_t const*>(positions) + i * positionStride);
         auto const* n = reinterpret_cast<float const*>(reinterpret_cast<uint8_t const*>(normals) + i * normalStride);
         auto const* uv = reinterpret_cast<float const*>(reinterpret_cast<uint8_t const*>(uvs) + i * uvStride);
-        m_vertices.push_back(
-            {glm::vec3(transform * glm::vec4(glm::make_vec3(p), 1.0f)),
-             glm::normalize(normalTransform * glm::make_vec3(n)),
-             glm::make_vec2(uv)});
+        m_mesh.vertices.push_back({glm::make_vec3(p), glm::make_vec3(n), glm::make_vec2(uv)});
     }
 
     tg3_accessor const& accessor = model.accessors[primitive.indices];
     tg3_buffer_view const& view = model.buffer_views[accessor.buffer_view];
     uint8_t const* indexData = model.buffers[view.buffer].data.data + view.byte_offset + accessor.byte_offset;
-    m_indices.reserve(static_cast<size_t>(accessor.count));
+    m_mesh.indices.reserve(static_cast<size_t>(accessor.count));
     for (uint64_t i = 0; i < accessor.count; ++i) {
         switch (accessor.component_type) {
         case TG3_COMPONENT_TYPE_UNSIGNED_SHORT:
-            m_indices.push_back(reinterpret_cast<uint16_t const*>(indexData)[i]);
+            m_mesh.indices.push_back(reinterpret_cast<uint16_t const*>(indexData)[i]);
             break;
         case TG3_COMPONENT_TYPE_UNSIGNED_INT:
-            m_indices.push_back(reinterpret_cast<uint32_t const*>(indexData)[i]);
+            m_mesh.indices.push_back(reinterpret_cast<uint32_t const*>(indexData)[i]);
             break;
         case TG3_COMPONENT_TYPE_UNSIGNED_BYTE:
-            m_indices.push_back(indexData[i]);
+            m_mesh.indices.push_back(indexData[i]);
             break;
         default:
             throw std::runtime_error("unsupported index type");
@@ -319,62 +273,4 @@ void RasterScene::uploadTextures() {
                                                texture.cpuTexture->pixels(),
                                                true);
     }
-}
-
-std::vector<PreparedTriangle> RasterScene::prepare(FrameState const& frame) const {
-    std::vector<PreparedTriangle> result;
-    result.reserve(m_indices.size() / 3);
-    glm::mat3 const normalTransform = glm::transpose(glm::inverse(glm::mat3(frame.model)));
-    glm::mat4 const modelViewProjection = frame.projection * frame.view * frame.model;
-    for (size_t index = 0; index + 2 < m_indices.size(); index += 3) {
-        std::vector<ClipVertex> polygon;
-        polygon.reserve(8);
-        for (int corner = 0; corner < 3; ++corner) {
-            RasterVertex const& source = m_vertices[m_indices[index + corner]];
-            polygon.push_back(
-                {modelViewProjection * glm::vec4(source.position, 1.0f),
-                 glm::vec3(frame.model * glm::vec4(source.position, 1.0f)),
-                 glm::normalize(normalTransform * source.normal),
-                 source.uv});
-        }
-        clipAgainst(polygon, [](ClipVertex const& v) { return v.clip.x + v.clip.w; });
-        clipAgainst(polygon, [](ClipVertex const& v) { return v.clip.w - v.clip.x; });
-        clipAgainst(polygon, [](ClipVertex const& v) { return v.clip.y + v.clip.w; });
-        clipAgainst(polygon, [](ClipVertex const& v) { return v.clip.w - v.clip.y; });
-        clipAgainst(polygon, [](ClipVertex const& v) { return v.clip.z + v.clip.w; });
-        clipAgainst(polygon, [](ClipVertex const& v) { return v.clip.w - v.clip.z; });
-        for (size_t triangle = 1; triangle + 1 < polygon.size(); ++triangle) {
-            ClipVertex const clipped[] = {polygon[0], polygon[triangle], polygon[triangle + 1]};
-            PreparedTriangle output{};
-            for (int corner = 0; corner < 3; ++corner) {
-                float const reciprocalW = 1.0f / clipped[corner].clip.w;
-                glm::vec3 const ndc = glm::vec3(clipped[corner].clip) * reciprocalW;
-                output.vertices[corner].screenAndInvW = glm::vec4((ndc.x * 0.5f + 0.5f) * frame.extent.x,
-                                                                  (ndc.y * 0.5f + 0.5f) * frame.extent.y,
-                                                                  ndc.z * 0.5f + 0.5f,
-                                                                  reciprocalW);
-                output.vertices[corner].worldPosition = glm::vec4(clipped[corner].worldPosition, 1.0f);
-                output.vertices[corner].normal = glm::vec4(clipped[corner].normal, 0.0f);
-                output.vertices[corner].uv = glm::vec4(clipped[corner].uv, 0.0f, 0.0f);
-            }
-            glm::vec3 const edge1 = clipped[1].worldPosition - clipped[0].worldPosition;
-            glm::vec3 const edge2 = clipped[2].worldPosition - clipped[0].worldPosition;
-            glm::vec2 const deltaUv1 = clipped[1].uv - clipped[0].uv;
-            glm::vec2 const deltaUv2 = clipped[2].uv - clipped[0].uv;
-            float const determinant = deltaUv1.x * deltaUv2.y - deltaUv1.y * deltaUv2.x;
-            if (std::abs(determinant) > 1e-8f) {
-                output.tangent =
-                    glm::vec4(glm::normalize((edge1 * deltaUv2.y - edge2 * deltaUv1.y) / determinant), 0.0f);
-                output.bitangent =
-                    glm::vec4(glm::normalize((-edge1 * deltaUv2.x + edge2 * deltaUv1.x) / determinant), 0.0f);
-            }
-            glm::vec2 const a(output.vertices[0].screenAndInvW);
-            glm::vec2 const b(output.vertices[1].screenAndInvW);
-            glm::vec2 const c(output.vertices[2].screenAndInvW);
-            if (glm::cross(b - a, c - a) > 0.0f) {
-                result.push_back(output);
-            }
-        }
-    }
-    return result;
 }

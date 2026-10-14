@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include <glm/glm.hpp>
 
@@ -38,12 +39,18 @@ struct PbrMaterial {
 };
 
 struct RasterVertex {
-    // World-space position after the model node transform.
+    // Original mesh-local position and normal, before node and per-frame transforms.
     glm::vec3 position{0.0f};
-    // World-space vertex normal after inverse-transpose transform.
     glm::vec3 normal{0.0f, 1.0f, 0.0f};
     // TEXCOORD_0 used by all supported helmet material maps.
     glm::vec2 uv{0.0f};
+};
+
+struct Mesh {
+    std::vector<RasterVertex> vertices;
+    std::vector<uint32_t> indices;
+    // Asset node transform, applied before FrameState::model by the renderer.
+    glm::mat4 transform{1.0f};
 };
 
 /* Packed triangle payload; fourteen vec4 texels preserve the C++/GLSL record layout. */
@@ -87,7 +94,7 @@ struct FrameState {
     glm::ivec2 extent{1280, 720};
 };
 
-struct RasterizerStats {
+struct RendererStats {
     // CPU wall time or GPU GL_TIME_ELAPSED result.
     float milliseconds = 0.0f;
     // Number after clipping; one source triangle can become several.
@@ -95,4 +102,6 @@ struct RasterizerStats {
     // GPU mode builds ordered, dynamically sized tile lists on CPU before drawing.
     // Reported separately from the GPU visibility/shading timer.
     float binningMilliseconds = 0.0f;
+    // Shared CPU vertex processing, clipping and triangle setup, before backend rendering.
+    float preparationMilliseconds = 0.0f;
 };

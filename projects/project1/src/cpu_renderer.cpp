@@ -1,5 +1,5 @@
 #define GLM_ENABLE_EXPERIMENTAL
-#include "cpu_rasterizer.h"
+#include "cpu_renderer.h"
 
 #include <limits>
 #include <common/timer.h>
@@ -7,7 +7,7 @@
 
 #include "pbr_shading.h"
 
-void CpuRasterizer::resizeBackend() {
+void CpuRenderer::resizeBackend() {
     // Keep separate depth and primitive-owner buffers, mirroring the GPU visibility resources.
     size_t const pixels = static_cast<size_t>(m_extent.x) * m_extent.y;
     m_depthBuffer.resize(pixels);
@@ -15,9 +15,9 @@ void CpuRasterizer::resizeBackend() {
     m_color.resize(pixels);
 }
 
-RasterizerStats CpuRasterizer::render(std::vector<PreparedTriangle> const& triangles,
-                                      PbrMaterial const& material,
-                                      FrameState const& frame) {
+RendererStats CpuRenderer::renderPrepared(std::vector<PreparedTriangle> const& triangles,
+                                          PbrMaterial const& material,
+                                          FrameState const& frame) {
     Timer timer;
     timer.tick();
     // Clear depth to the far plane, clear owners to "no primitive", then paint the background.

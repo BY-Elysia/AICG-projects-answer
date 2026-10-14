@@ -1,13 +1,14 @@
-#include "rasterizer_app.h"
-#include "tile_binning.h"
+#include "software_renderer_app.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <glad/glad.h>
 #include <glm/ext.hpp>
 
 namespace {
@@ -65,31 +66,38 @@ void compareOutputs(std::string const& label,
     }
 }
 
-PreparedTriangle testTriangle(float depth, glm::vec3 normal) {
-    PreparedTriangle triangle;
+struct TestTriangle {
+    float depth;
+    glm::vec3 normal;
+};
+
+// Raw mesh inputs: the renderer must transform, assemble and clip these triangles itself.
+Mesh testMesh(std::vector<TestTriangle> const& triangles) {
+    Mesh mesh;
     glm::vec2 const positions[]{{10, 10}, {110, 10}, {10, 90}};
-    for (int corner = 0; corner < 3; ++corner) {
-        triangle.vertices[corner].screenAndInvW = glm::vec4{positions[corner], depth, 1};
-        triangle.vertices[corner].worldPosition = glm::vec4{0, 0, 0, 1};
-        triangle.vertices[corner].normal = glm::vec4{normal, 0};
+    for (auto const& triangle : triangles) {
+        for (auto position : positions) {
+            mesh.indices.push_back(static_cast<uint32_t>(mesh.vertices.size()));
+            mesh.vertices.push_back({glm::vec3{position, -triangle.depth}, triangle.normal, glm::vec2{0}});
+        }
     }
-    return triangle;
+    return mesh;
 }
 } // namespace
 
-void RasterizerApp::validateBackends() {
+void SoftwareRendererApp::validateBackends() {
     auto check = [this](std::string const& label,
                         FrameState const& frame,
-                        std::vector<PreparedTriangle> const& triangles,
+                        Mesh const& mesh,
                         PbrMaterial const& material,
-                        bool expectGeometry) {
-        m_cpuRasterizer->resize(frame.extent);
-        m_gpuRasterizer->resize(frame.extent);
-        auto const cpuStats = m_cpuRasterizer->render(triangles, material, frame);
-        auto const cpu = readOutput(m_cpuRasterizer->outputTexture());
-        auto const gpuStats = m_gpuRasterizer->render(triangles, material, frame);
-        auto const gpu = readOutput(m_gpuRasterizer->outputTexture());
-        if (cpuStats.triangleCount != gpuStats.triangleCount || cpuStats.triangleCount != triangles.size()) {
+                        bool expectGeometry,
+                        std::optional<uint32_t> expectedTriangles = std::nullopt) {
+        auto const cpuStats = m_cpuRenderer->render(mesh, material, frame);
+        auto const cpu = readOutput(m_cpuRenderer->outputTexture());
+        auto const gpuStats = m_gpuRenderer->render(mesh, material, frame);
+        auto const gpu = readOutput(m_gpuRenderer->outputTexture());
+        if (cpuStats.triangleCount != gpuStats.triangleCount ||
+            (expectedTriangles && cpuStats.triangleCount != *expectedTriangles)) {
             throw std::runtime_error(label + ": triangle statistics differ");
         }
         compareOutputs(label, cpu, gpu, expectGeometry);
@@ -111,52 +119,66 @@ void RasterizerApp::validateBackends() {
             frame.model = glm::rotate(glm::mat4{1}, angle, glm::vec3{0, 1, 0});
             check("helmet " + std::to_string(extent.x) + " angle " + std::to_string(angle),
                   frame,
-                  m_scene->prepare(frame),
+                  m_scene->mesh(),
                   m_scene->material(),
                   true);
         }
     }
     // Exercise shared clipping with a model intersecting the side planes.
     frame.model = glm::translate(glm::mat4{1}, glm::vec3{1.7f, 0, 0});
-    check("clipped helmet", frame, m_scene->prepare(frame), m_scene->material(), true);
+    check("clipped helmet", frame, m_scene->mesh(), m_scene->material(), true);
 
     frame.extent = {127, 97};
+    frame.model = glm::mat4{1};
+    frame.view = glm::mat4{1};
+    frame.projection = glm::ortho(0.0f, float(frame.extent.x), 0.0f, float(frame.extent.y), 0.0f, 1.0f);
+    frame.cameraPosition = {0, 0, 5};
     PbrMaterial simple;
     simple.metallicFactor = 0;
     simple.roughnessFactor = 0.8f;
-    std::vector<PreparedTriangle> triangles{testTriangle(0.8f, {0, 1, 0}), testTriangle(0.2f, {0, 0, 1})};
-    auto const depthForward = check("overlapping depth", frame, triangles, simple, true);
+    std::vector<TestTriangle> triangles{{0.8f, {0, 1, 0}}, {0.2f, {0, 0, 1}}};
+    auto const depthForward = check("overlapping depth", frame, testMesh(triangles), simple, true, 2);
     std::reverse(triangles.begin(), triangles.end());
-    auto const depthReverse = check("reversed depth order", frame, triangles, simple, true);
+    auto const depthReverse = check("reversed depth order", frame, testMesh(triangles), simple, true, 2);
     if (depthForward != depthReverse) {
         throw std::runtime_error("Visibility depends on submission order for different depths");
     }
-    triangles = {testTriangle(0.2f, {0, 1, 0}), testTriangle(0.2f, {0, 0, 1})};
-    auto const tieForward = check("equal depth first owner", frame, triangles, simple, true);
+    triangles = {{0.2f, {0, 1, 0}}, {0.2f, {0, 0, 1}}};
+    auto const tieForward = check("equal depth first owner", frame, testMesh(triangles), simple, true, 2);
     std::reverse(triangles.begin(), triangles.end());
-    auto const tieReverse = check("equal depth reversed owner", frame, triangles, simple, true);
+    auto const tieReverse = check("equal depth reversed owner", frame, testMesh(triangles), simple, true, 2);
     if (tieForward == tieReverse) {
         throw std::runtime_error("Equal-depth test did not distinguish the two materials");
     }
     // Put the visible triangle after more than 1024 references in the same tile. The old
     // fixed-capacity GPU list discarded it; variable-length lists must retain every reference.
-    triangles.assign(1300, testTriangle(0.8f, {0, 1, 0}));
-    triangles.push_back(testTriangle(0.2f, {0, 0, 1}));
-    auto const tiles = binTriangles(triangles, frame.extent, 16);
-    if (tiles.ranges.front().y != triangles.size()) {
-        throw std::runtime_error("Crowded tile lost triangle references");
-    }
-    auto const crowded = check("1301 triangles per tile", frame, triangles, simple, true);
+    triangles.assign(1300, {0.8f, {0, 1, 0}});
+    triangles.push_back({0.2f, {0, 0, 1}});
+    auto const crowded = check("1301 triangles per tile", frame, testMesh(triangles), simple, true, 1301);
     if (crowded != depthForward) {
         throw std::runtime_error("Crowded tile did not retain its nearest triangle");
     }
-    check("empty scene", frame, {}, simple, false);
+    check("empty scene", frame, {}, simple, false, 0);
 
-    for (Rasterizer* rasterizer :
-         {static_cast<Rasterizer*>(m_cpuRasterizer.get()), static_cast<Rasterizer*>(m_gpuRasterizer.get())}) {
+    // The scene keeps local vertices. Node transforms must be applied inside each renderer.
+    Mesh transformed = testMesh({{0.2f, {0, 1, 0}}});
+    transformed.transform = glm::translate(glm::mat4{1}, glm::vec3{12, 2, 0}) *
+                            glm::rotate(glm::mat4{1}, 0.2f, glm::vec3{0, 0, 1}) *
+                            glm::scale(glm::mat4{1}, glm::vec3{0.8f, 0.9f, 1});
+    auto const nodeTransform = check("mesh node transform", frame, transformed, simple, true, 1);
+    FrameState instanceFrame = frame;
+    instanceFrame.model = transformed.transform;
+    transformed.transform = glm::mat4{1};
+    auto const instanceTransform = check("equivalent instance transform", instanceFrame, transformed, simple, true, 1);
+    compareOutputs("node/instance transform equivalence", nodeTransform, instanceTransform, true);
+
+    for (Renderer* renderer :
+         {static_cast<Renderer*>(m_cpuRenderer.get()), static_cast<Renderer*>(m_gpuRenderer.get())}) {
         bool rejected = false;
         try {
-            rasterizer->resize({0, 97});
+            FrameState invalid = frame;
+            invalid.extent = {0, 97};
+            renderer->render({}, simple, invalid);
         }
         catch (std::invalid_argument const&) {
             rejected = true;
@@ -164,10 +186,24 @@ void RasterizerApp::validateBackends() {
         if (!rejected) {
             throw std::runtime_error("Zero-sized raster target was accepted");
         }
+        for (auto const& indices : {std::vector<uint32_t>{0, 1}, std::vector<uint32_t>{0, 1, 3}}) {
+            Mesh invalid = testMesh({{0.2f, {0, 0, 1}}});
+            invalid.indices = indices;
+            rejected = false;
+            try {
+                renderer->render(invalid, simple, frame);
+            }
+            catch (std::invalid_argument const&) {
+                rejected = true;
+            }
+            if (!rejected) {
+                throw std::runtime_error("Invalid mesh indices were accepted");
+            }
+        }
     }
     // Also exercise presentation, UI and repeated switching at the real framebuffer extent.
     for (int i = 0; i < 4; ++i) {
-        m_rasterBackend = i % 2 == 0 ? RasterBackend::Cpu : RasterBackend::Gpu;
+        m_renderBackend = i % 2 == 0 ? RenderBackend::Cpu : RenderBackend::Gpu;
         m_directionalLight.color = i % 2 == 0 ? glm::vec3{1} : glm::vec3{0.5f, 0.8f, 1};
         m_directionalLight.intensity = 4.0f + i;
         m_window.pollEvents();
@@ -177,5 +213,5 @@ void RasterizerApp::validateBackends() {
             throw std::runtime_error("Presentation/UI OpenGL error");
         }
     }
-    std::cout << "Rasterizer validation passed\n";
+    std::cout << "Renderer pipeline validation passed\n";
 }

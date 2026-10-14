@@ -4,23 +4,23 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <glad/glad.h>
 #include <graphics/framebuffer.h>
 #include <graphics/gl_program.h>
 #include <graphics/vertex_array.h>
-#include "rasterizer.h"
+#include "renderer.h"
 
 // OpenGL 4.1: CPU builds tile lists; fragment shaders perform coverage, depth and PBR.
-class GpuRasterizer final : public Rasterizer {
+class GpuRenderer final : public Renderer {
 public:
-    GpuRasterizer(std::string const& vertexShader,
-                  std::string const& visibilityShader,
-                  std::string const& shadingShader);
+    GpuRenderer(std::string const& vertexShader, std::string const& visibilityShader, std::string const& shadingShader);
 
-    ~GpuRasterizer() override;
+    ~GpuRenderer() override;
 
-    RasterizerStats render(std::vector<PreparedTriangle> const& triangles,
-                           PbrMaterial const& material,
-                           FrameState const& frame) override;
+protected:
+    RendererStats renderPrepared(std::vector<PreparedTriangle> const& triangles,
+                                 PbrMaterial const& material,
+                                 FrameState const& frame) override;
 
 private:
     std::unique_ptr<gfx::GLProgram> m_visibilityProgram;

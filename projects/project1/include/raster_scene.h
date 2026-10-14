@@ -20,11 +20,12 @@ public:
         return m_material;
     }
 
-    std::vector<PreparedTriangle> prepare(FrameState const& frame) const;
+    Mesh const& mesh() const {
+        return m_mesh;
+    }
 
 private:
-    std::vector<RasterVertex> m_vertices;
-    std::vector<uint32_t> m_indices;
+    Mesh m_mesh;
     PbrMaterial m_material;
 
 private:

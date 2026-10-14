@@ -1,7 +1,8 @@
-#include "rasterizer_app.h"
+#include "software_renderer_app.h"
 
 #include <stdexcept>
 #include <format>
+#include <glad/glad.h>
 #include <common/event/event_dispatcher.h>
 #include <common/event/keyboard_event.h>
 #include <glm/ext.hpp>
@@ -22,7 +23,7 @@ constexpr char const* DisplayVertexPath = "shaders/display.vert";
 constexpr char const* DisplayFragmentPath = "shaders/display.frag";
 constexpr float ModelRotationRadiansPerSecond = 0.5f;
 
-RasterizerApp::RasterizerApp(Config const& config)
+SoftwareRendererApp::SoftwareRendererApp(Config const& config)
     : Application(config) {
     m_scene = std::make_unique<RasterScene>(getAssetPath(ModelPath).string());
 
@@ -35,10 +36,10 @@ RasterizerApp::RasterizerApp(Config const& config)
         glm::quatLookAt(glm::normalize(glm::vec3(0.5f, -0.5f, -0.70710678f)), Transform::getDefaultUp());
     m_directionalLight.intensity = 10.0f;
 
-    m_cpuRasterizer = std::make_unique<CpuRasterizer>();
-    m_gpuRasterizer = std::make_unique<GpuRasterizer>(getAssetPath(DisplayVertexPath).string(),
-                                                      getAssetPath(VisibilityPath).string(),
-                                                      getAssetPath(ShadingPath).string());
+    m_cpuRenderer = std::make_unique<CpuRenderer>();
+    m_gpuRenderer = std::make_unique<GpuRenderer>(getAssetPath(DisplayVertexPath).string(),
+                                                  getAssetPath(VisibilityPath).string(),
+                                                  getAssetPath(ShadingPath).string());
 
     m_displayProgram = makeDisplayProgram(getAssetPath(DisplayVertexPath), getAssetPath(DisplayFragmentPath));
 
@@ -58,13 +59,13 @@ RasterizerApp::RasterizerApp(Config const& config)
     resetClock();
 }
 
-RasterizerApp::~RasterizerApp() {
+SoftwareRendererApp::~SoftwareRendererApp() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 }
 
-void RasterizerApp::handleEvent(Event& event) {
+void SoftwareRendererApp::handleEvent(Event& event) {
     EventDispatcher dispatcher{event};
     dispatcher.dispatch<KeyPressEvent>([this](KeyPressEvent& key) {
         if (key.getKeyCode() == KeyCode::Escape) {
@@ -75,7 +76,7 @@ void RasterizerApp::handleEvent(Event& event) {
     });
 }
 
-void RasterizerApp::renderFrame() {
+void SoftwareRendererApp::renderFrame() {
     auto const width = m_window.framebufferWidth();
     auto const height = m_window.framebufferHeight();
     if (width == 0 || height == 0) {
@@ -86,7 +87,7 @@ void RasterizerApp::renderFrame() {
     m_titleSeconds += getDeltaTime();
     ++m_titleFrames;
     if (m_titleSeconds >= 1.0f) {
-        m_window.setTitle(std::format("CPU / GPU Rasterizer | {:.1f} FPS", m_titleFrames / m_titleSeconds));
+        m_window.setTitle(std::format("Software Renderer | {:.1f} FPS", m_titleFrames / m_titleSeconds));
         m_titleSeconds = 0.0f;
         m_titleFrames = 0;
     }
@@ -99,19 +100,10 @@ void RasterizerApp::renderFrame() {
     frame.directionalLight = m_directionalLight;
     frame.extent = {width, height};
 
-    m_cpuRasterizer->resize(frame.extent);
-    m_gpuRasterizer->resize(frame.extent);
-    // Build the same clipped, screen-space triangle list before selecting either backend.
-    std::vector<PreparedTriangle> const triangles = m_scene->prepare(frame);
-    gfx::Texture2D const* output = nullptr;
-    if (m_rasterBackend == RasterBackend::Cpu) {
-        m_stats = m_cpuRasterizer->render(triangles, m_scene->material(), frame);
-        output = &m_cpuRasterizer->outputTexture();
-    }
-    else {
-        m_stats = m_gpuRasterizer->render(triangles, m_scene->material(), frame);
-        output = &m_gpuRasterizer->outputTexture();
-    }
+    Renderer& renderer = m_renderBackend == RenderBackend::Cpu ? static_cast<Renderer&>(*m_cpuRenderer)
+                                                               : static_cast<Renderer&>(*m_gpuRenderer);
+    m_stats = renderer.render(m_scene->mesh(), m_scene->material(), frame);
+    auto const& output = renderer.outputTexture();
 
     // Rasterization is already complete; this pass only tone-maps the chosen HDR texture.
     glDisable(GL_DEPTH_TEST);
@@ -121,31 +113,32 @@ void RasterizerApp::renderFrame() {
     glViewport(0, 0, width, height);
     m_displayProgram->use();
     auto const displayUnit = m_displayProgram->getTextureBinding("uHdrColor");
-    output->bindTextureUnit(displayUnit);
+    output.bindTextureUnit(displayUnit);
     m_fullscreenVao.bind();
     gfx::RHI::draw(gfx::RHI::Primitive::Triangles, 0, 3);
     gfx::VertexArray::unbind();
-    output->unbindTextureUnit(displayUnit);
+    output.unbindTextureUnit(displayUnit);
 
     // render UI elements
     renderUi();
 }
 
-void RasterizerApp::renderUi() {
+void SoftwareRendererApp::renderUi() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
     ImGuiWindowFlags const flags = ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings;
     if (ImGui::Begin("Rasterizer", nullptr, flags)) {
-        int mode = static_cast<int>(m_rasterBackend);
-        ImGui::RadioButton("CPU", &mode, static_cast<int>(RasterBackend::Cpu));
+        int mode = static_cast<int>(m_renderBackend);
+        ImGui::RadioButton("CPU", &mode, static_cast<int>(RenderBackend::Cpu));
         ImGui::SameLine();
-        ImGui::RadioButton("GPU fragment", &mode, static_cast<int>(RasterBackend::Gpu));
-        m_rasterBackend = static_cast<RasterBackend>(mode);
+        ImGui::RadioButton("GPU fragment", &mode, static_cast<int>(RenderBackend::Gpu));
+        m_renderBackend = static_cast<RenderBackend>(mode);
         ImGui::Separator();
         ImGui::Text("triangles: %u", m_stats.triangleCount);
+        ImGui::Text("geometry time: %.3f ms", m_stats.preparationMilliseconds);
         ImGui::Text("raster time: %.3f ms", m_stats.milliseconds);
-        if (m_rasterBackend == RasterBackend::Gpu) {
+        if (m_renderBackend == RenderBackend::Gpu) {
             ImGui::Text("CPU binning: %.3f ms", m_stats.binningMilliseconds);
         }
         ImGui::ColorEdit3("light color", &m_directionalLight.color.x);

@@ -2,6 +2,12 @@
 
 使用仓库 `../../base` 框架的自行光栅化演示。CPU 和 GPU 共用模型变换、视锥裁剪及三角形准备，随后分别执行软件光栅化或片元着色器光栅化。项目请求 OpenGL 4.1 Core，所有着色器使用 GLSL 410；GPU 后端不依赖 compute shader、SSBO、image load/store 或 OpenGL 4.2+ 扩展。
 
+## 渲染管线与职责
+
+`RasterScene` 加载并保存原始 Mesh 顶点、索引、glTF 节点变换和材质。应用层选择 `CpuRenderer` 或 `GpuRenderer`，调用共同入口 `Renderer::render(mesh, material, frame)`；渲染器根据帧尺寸管理输出，并完成顶点处理、图元组装、齐次裁剪、透视除法、视口变换、背面剔除、光栅化、深度测试与 PBR 片元着色。
+
+两个后端复用 Renderer 内的 CPU 顶点处理和裁剪代码。每个输入顶点只变换一次，再根据索引组装图元；`PreparedTriangle` 是渲染器内部的三角形中间数据，Scene 和应用层不再生成它。CPU 后端在软件中插值和着色，GPU 后端使用下面的 tile 列表及片元着色器。应用层只负责窗口、交互、相机与光照参数，以及 HDR 结果的色调映射和显示。
+
 ## GPU 后端的数据流
 
 CPU 将三角形按 16×16 tile 分桶，生成 `(offset, count)` 和共享的变长索引数组，保持三角形提交顺序。GPU 可见性片元着色器逐像素遍历所属 tile 的列表，自行计算覆盖、重心坐标和深度，写入 R32UI 三角形 ID。随后 PBR 片元着色器读取胜出的三角形，完成透视校正插值和材质着色，写入 RGBA16F。两种后端通过同一全屏色调映射通道显示。
@@ -45,6 +51,7 @@ Intel Mac 将 triplet 改为 `x64-osx`。共享窗口框架已在 macOS 请求 f
 - 在 `Rasterizer` 面板切换 CPU / GPU fragment。
 - `light color`、`light intensity` 调节平行光；模型持续绕 Y 轴旋转。
 - `triangles` 表示裁剪并剔除背面后的三角形数。
+- `geometry time` 单独统计 Renderer 内顶点变换、图元组装、裁剪和三角形准备的 CPU 时间，两种后端使用相同统计口径。
 - CPU 模式的 `raster time` 包含软件光栅化、着色及像素上传的墙钟时间；GPU 模式统计可见性和 PBR 两次绘制的 GPU 时间。
 - GPU 模式的 `CPU binning` 单独显示 CPU 分桶耗时。GPU 时间不包含 CPU 分桶和输入纹理上传，两种后端的统计口径不同；均不包含共享模型准备和最终显示。
 - Esc 或窗口关闭按钮退出。
@@ -59,7 +66,7 @@ ctest --test-dir build/project1 -C Debug --output-on-failure
 .\build\project1\Debug\Rasterizer.exe --validate
 ```
 
-验证使用相同的固定帧输入比较 CPU/GPU 输出：两个分辨率（包括非整 tile 尺寸）、两个旋转角度、部分裁剪、遮挡深度与提交顺序、等深度的首次提交规则、每 tile 1301 个三角形且最近三角形最后提交、空场景、零尺寸拒绝，以及实际窗口中的显示、UI 和多次后端切换。检查有限性、alpha、覆盖与色调映射后的误差，容许浮点运算、纹理采样和半精度存储误差。程序输出统计并以退出码报告结果；验证结束自动退出。
+验证从原始 Mesh 输入开始比较完整 CPU/GPU 管线输出：两个分辨率（包括非整 tile 尺寸）、两个旋转角度、部分裁剪、遮挡深度与提交顺序、等深度的首次提交规则、每 tile 1301 个三角形且最近三角形最后提交、节点变换与等价实例变换、空场景、零尺寸和无效索引拒绝，以及实际窗口中的显示、UI 和多次后端切换。检查有限性、alpha、覆盖与色调映射后的误差，容许浮点运算、纹理采样和半精度存储误差。程序输出统计并以退出码报告结果；验证结束自动退出。
 
 本项目保持单 mesh node、单 primitive、单 PBR 材质约束；材质使用五个可选贴图槽位，CPU 与 GPU 均使用 level 0、线性过滤和 repeat 寻址。
 
