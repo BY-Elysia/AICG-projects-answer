@@ -33,7 +33,6 @@ GpuRenderer::GpuRenderer(uint32_t width,
         modules.push_back(loadShader(rasterFragmentShader, gfx::ShaderModule::Stage::Fragment));
         m_rasterProgram = std::make_unique<gfx::GLProgram>(modules);
         for (int i = 0; i < 5; ++i) {
-            std::string const flag = "uHasTexture[" + std::to_string(i) + "]";
             std::string const sampler = "uTextures[" + std::to_string(i) + "]";
             m_rasterProgram->setUniform(sampler, i);
         }

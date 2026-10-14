@@ -242,8 +242,6 @@ RasterScene::RasterScene(std::filesystem::path const& filePath) {
     uploadTextures();
 }
 
-RasterScene::~RasterScene() = default;
-
 void RasterScene::load(std::filesystem::path const& filePath) {
     tinygltf3::Model parsed;
     tinygltf3::ErrorStack errors;

@@ -50,8 +50,8 @@ SoftwareRendererApp::SoftwareRendererApp(Config const& config)
 
     // display program
     std::vector<gfx::ShaderModule> shaderModules;
-    shaderModules.push_back(loadShader(kDisplayVertexPath, gfx::ShaderModule::Stage::Vertex));
-    shaderModules.push_back(loadShader(kDisplayFragmentPath, gfx::ShaderModule::Stage::Fragment));
+    shaderModules.push_back(loadShader(getAssetPath(kDisplayVertexPath), gfx::ShaderModule::Stage::Vertex));
+    shaderModules.push_back(loadShader(getAssetPath(kDisplayFragmentPath), gfx::ShaderModule::Stage::Fragment));
     m_displayProgram = std::make_unique<gfx::GLProgram>(shaderModules);
 
     // ui

@@ -10,7 +10,7 @@ class RasterScene {
 public:
     explicit RasterScene(std::filesystem::path const& filePath);
 
-    ~RasterScene();
+    ~RasterScene() = default;
 
     RasterScene(RasterScene const&) = delete;
 

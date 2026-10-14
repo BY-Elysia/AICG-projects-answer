@@ -23,18 +23,22 @@ private:
     enum class RenderBackend { Cpu = 0, Gpu = 1 };
 
 private:
+    // scene
     std::unique_ptr<RasterScene> m_scene;
     PerspectiveCamera m_camera{glm::radians(45.0f), m_window.aspectRatio(), 0.1f, 100.0f};
     DirectionalLight m_directionalLight;
 
+    // renderer
     std::unique_ptr<CpuRenderer> m_cpuRenderer;
     std::unique_ptr<GpuRenderer> m_gpuRenderer;
-    std::unique_ptr<gfx::GLProgram> m_displayProgram;
-    gfx::VertexArray m_fullscreenVao;
-
     RenderBackend m_renderBackend = RenderBackend::Gpu;
     RendererStats m_stats;
 
+    // display
+    std::unique_ptr<gfx::GLProgram> m_displayProgram;
+    gfx::VertexArray m_fullscreenVao;
+
+    // fps
     float m_titleSeconds = 0.0f;
     uint32_t m_titleFrames = 0;
 
