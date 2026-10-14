@@ -12,16 +12,16 @@ uniform mat3 uNormalTransform;
 
 // Captured before fixed-function clipping, in the TransformedVertex record order.
 out precise vec4 tfClip;
-out precise vec4 tfWorldPosition;
-out precise vec4 tfNormal;
-out vec4 tfUv;
+out precise vec3 tfWorldPosition;
+out precise vec3 tfNormal;
+out vec2 tfUv;
 
 void main() {
     vec3 position = vec3(uMeshTransform * vec4(aPosition, 1.0));
     vec3 normal = normalize(uNodeNormalTransform * aNormal);
     tfClip = uModelViewProjection * vec4(position, 1.0);
-    tfWorldPosition = vec4(vec3(uModel * vec4(position, 1.0)), 1.0);
-    tfNormal = vec4(normalize(uNormalTransform * normal), 0.0);
-    tfUv = vec4(aUv, 0.0, 0.0);
+    tfWorldPosition = vec3(uModel * vec4(position, 1.0));
+    tfNormal = normalize(uNormalTransform * normal);
+    tfUv = aUv;
     gl_Position = tfClip;
 }

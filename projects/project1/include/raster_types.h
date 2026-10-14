@@ -1,22 +1,26 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 
 #include <glm/glm.hpp>
 
 #include <scene/light/light.h>
+#include <graphics/sampler.h>
 #include <graphics/texture/texture2d.h>
 
+#include "cpu_sampler.h"
 #include "cpu_texture2d.h"
 #include "mesh.h"
 
 struct UnifiedTexture2D {
-    // CPU texture abstraction owned by the material for CPU rasterizer sampling.
+    // Texture storage and sampling state for the two rasterizers.
     std::unique_ptr<CpuTexture2D> cpuTexture;
-    // GPU texture object shared with the fragment shading pass through the gfx::Texture2D API.
+    CpuSampler cpuSampler;
     std::unique_ptr<gfx::Texture2D> gpuTexture;
+    std::shared_ptr<gfx::Sampler> gpuSampler;
 };
 
 struct PbrMaterial {
@@ -46,15 +50,19 @@ struct DrawItem {
     glm::mat4 transform{1.0f};
 };
 
-// Shared vertex-stage layout: CPU prepares these values, GPU captures them as four interleaved vec4s.
-struct alignas(16) TransformedVertex {
+// Shared vertex-stage layout, matching the GPU's interleaved transform feedback output.
+struct TransformedVertex {
     glm::vec4 clip{0.0f};
-    glm::vec4 worldPosition{0.0f};
-    glm::vec4 normal{0.0f, 1.0f, 0.0f, 0.0f};
-    glm::vec4 uv{0.0f};
+    glm::vec3 worldPosition{0.0f};
+    glm::vec3 normal{0.0f, 1.0f, 0.0f};
+    glm::vec2 uv{0.0f};
 };
 
-static_assert(sizeof(TransformedVertex) == 64);
+static_assert(sizeof(TransformedVertex) == 48);
+static_assert(offsetof(TransformedVertex, clip) == 0);
+static_assert(offsetof(TransformedVertex, worldPosition) == 16);
+static_assert(offsetof(TransformedVertex, normal) == 28);
+static_assert(offsetof(TransformedVertex, uv) == 40);
 
 struct FrameState {
     // Shared per-frame input. Both rasterizers use the same camera and light for comparison.
@@ -70,13 +78,4 @@ struct FrameState {
     DirectionalLight directionalLight;
     // Raster target size in physical framebuffer pixels.
     glm::ivec2 extent{1280, 720};
-};
-
-struct RendererStats {
-    // CPU raster wall time or most recently available asynchronous GPU query result.
-    float milliseconds = 0.0f;
-    // CPU: triangles after clipping; GPU: submitted source triangles.
-    uint32_t triangleCount = 0;
-    // CPU geometry preparation, or CPU submission wall time for the GPU renderer.
-    float preparationMilliseconds = 0.0f;
 };

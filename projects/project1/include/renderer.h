@@ -16,7 +16,7 @@ public:
     void resize(glm::ivec2 const& extent);
 
     // Process all draw items together so depth and material ownership span the whole scene.
-    virtual RendererStats render(std::vector<DrawItem> const& draws, FrameState const& frame) = 0;
+    virtual void render(std::vector<DrawItem> const& draws, FrameState const& frame) = 0;
 
     // SoftwareRendererApp presents the HDR result separately from the rendering pipeline.
     gfx::Texture2D const& outputTexture() const {

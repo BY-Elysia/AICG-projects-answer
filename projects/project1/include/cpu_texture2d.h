@@ -7,32 +7,10 @@
 
 #include <glm/glm.hpp>
 
+class CpuSampler;
+
 class CpuTexture2D {
 public:
-    enum class Filter {
-        // Select the closest texel without interpolation.
-        Nearest,
-        // Blend the four neighboring texels with bilinear interpolation.
-        Linear,
-        // Select the nearest texel from the nearest mip level.
-        NearestMipmapNearest,
-        // Bilinearly filter the nearest mip level.
-        LinearMipmapNearest,
-        // Blend nearest-texel lookups from the two surrounding mip levels.
-        NearestMipmapLinear,
-        // Trilinearly filter the two surrounding mip levels.
-        LinearMipmapLinear
-    };
-
-    enum class AddressMode {
-        // Tile the base level indefinitely.
-        Repeat,
-        // Reflect every second tile.
-        MirroredRepeat,
-        // Use the nearest edge texel outside the normalized coordinate range.
-        ClampToEdge
-    };
-
     enum class InternalFormat {
         // One normalized unsigned 8-bit component per texel.
         R8,
@@ -112,18 +90,6 @@ public:
 
     CpuTexture2D& operator=(CpuTexture2D&& rhs) noexcept;
 
-    // Sets the addressing rule for the horizontal S texture coordinate.
-    void setAddressModeS(AddressMode addressMode);
-
-    // Sets the addressing rule for the vertical T texture coordinate.
-    void setAddressModeT(AddressMode addressMode);
-
-    // Sets the filter used by software lookups identified as minification.
-    void setMinFilter(Filter filter);
-
-    // Sets the filter used by software lookups identified as magnification.
-    void setMagFilter(Filter filter);
-
     // Generates every lower-resolution level by box-filtering the internal base level. Replaces
     // any mip chain created by a previous call.
     void generatorMipMap();
@@ -131,15 +97,6 @@ public:
     // Replaces every base-level texel by converting one complete external-format source image into
     // this texture's internal storage. The source layout must match format() and dataType().
     void updatePixels(void const* pixels);
-
-    // Samples only the base mip level. Because texture-coordinate derivatives are not available,
-    // this lookup uses the texel filter portion of the configured minification filter.
-    glm::vec4 sample(glm::vec2 const& uv) const;
-
-    // Samples the generated mip chain at an explicit continuous level-of-detail value. This lookup
-    // uses the configured minification filter; level zero is the base texture and positive values
-    // select progressively smaller levels.
-    glm::vec4 sampleMipMap(glm::vec2 const& uv, float levelOfDetail) const;
 
     // Returns the allocated base-level width in texels.
     int width() const;
@@ -169,6 +126,8 @@ public:
     DataType storageDataType() const;
 
 private:
+    friend class CpuSampler;
+
     struct MipLevel {
         // Width of this mip level in texels.
         int width = 0;
@@ -200,18 +159,6 @@ private:
     // Byte width of one internally stored component, derived once from m_internalFormat.
     size_t m_bytesPerComponent = 0;
 
-    // Addressing mode for the texture's horizontal S coordinate.
-    AddressMode m_addressModeS = AddressMode::ClampToEdge;
-
-    // Addressing mode for the texture's vertical T coordinate.
-    AddressMode m_addressModeT = AddressMode::ClampToEdge;
-
-    // Filter used when a software caller identifies the lookup as minification.
-    Filter m_minFilter = Filter::Nearest;
-
-    // Filter used when a software caller identifies the lookup as magnification.
-    Filter m_magFilter = Filter::Nearest;
-
 private:
     size_t byteSize() const;
 
@@ -222,8 +169,6 @@ private:
     void clearGeneratedMipLevels() noexcept;
 
     glm::vec4 texelFromLevel(void const* pixels, int width, int height, int x, int y) const;
-
-    glm::vec4 sampleLevel(glm::vec2 const& uv, size_t level, Filter filter) const;
 
     glm::vec4 sourceTexel(std::byte const* source) const;
 
@@ -237,10 +182,6 @@ private:
 
     static uint16_t floatToHalf(float value) noexcept;
 
-    static int resolveCoordinate(int coordinate, int extent, AddressMode addressMode) noexcept;
-
-    static float resolveUv(float coordinate, AddressMode addressMode) noexcept;
-
     static size_t componentCount(InternalFormat format);
 
     static size_t sourceComponentCount(Format format);
@@ -252,10 +193,6 @@ private:
     static Format canonicalFormat(InternalFormat format) noexcept;
 
     static DataType canonicalDataType(InternalFormat format) noexcept;
-
-    static Filter texelFilter(Filter filter) noexcept;
-
-    static bool isTrilinear(Filter filter) noexcept;
 
     template <typename T> static T readComponent(std::byte const* source) noexcept {
         T value;

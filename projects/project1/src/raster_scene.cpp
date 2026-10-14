@@ -1,5 +1,4 @@
 #include "raster_scene.h"
-#include "texture_utils.h"
 
 #include <cstring>
 #include <filesystem>
@@ -131,10 +130,12 @@ static void loadTexture(tg3_model const& model, int textureIndex, UnifiedTexture
                                                        CpuTexture2D::DataType::UnsignedByte,
                                                        decoded);
     // Both renderers sample level zero with linear filtering and repeat addressing.
-    target.cpuTexture->setMinFilter(CpuTexture2D::Filter::Linear);
-    target.cpuTexture->setMagFilter(CpuTexture2D::Filter::Linear);
-    target.cpuTexture->setAddressModeS(CpuTexture2D::AddressMode::Repeat);
-    target.cpuTexture->setAddressModeT(CpuTexture2D::AddressMode::Repeat);
+    target.cpuSampler = CpuSampler{CpuSampler::Description{
+        .minFilter = CpuSampler::Filter::Linear,
+        .magFilter = CpuSampler::Filter::Linear,
+        .addressModeU = CpuSampler::AddressMode::Repeat,
+        .addressModeV = CpuSampler::AddressMode::Repeat,
+    }};
     stbi_image_free(decoded);
 }
 
@@ -156,6 +157,9 @@ static Mesh loadPrimitive(tg3_model const& model, tg3_primitive const& primitive
     if (!positions || !normals || !uvs || normalCount != vertexCount || uvCount != vertexCount) {
         throw std::runtime_error("triangle primitive needs POSITION, NORMAL and TEXCOORD_0");
     }
+    if (vertexCount == 0) {
+        throw std::runtime_error("triangle primitive has no vertices");
+    }
 
     Mesh mesh;
     auto& vertices = mesh.editVertices();
@@ -168,6 +172,9 @@ static Mesh loadPrimitive(tg3_model const& model, tg3_primitive const& primitive
         vertices.push_back({glm::make_vec3(p), glm::make_vec3(n), glm::make_vec2(uv)});
     }
     if (primitive.indices < 0) {
+        if (vertexCount % 3 != 0) {
+            throw std::runtime_error("triangle primitive vertex count must be divisible by three");
+        }
         auto& indices = mesh.editIndices();
         indices.reserve(vertexCount);
         for (size_t i = 0; i < vertexCount; ++i) {
@@ -176,6 +183,9 @@ static Mesh loadPrimitive(tg3_model const& model, tg3_primitive const& primitive
         return mesh;
     }
     tg3_accessor const& accessor = model.accessors[primitive.indices];
+    if (accessor.count == 0 || accessor.count % 3 != 0) {
+        throw std::runtime_error("triangle primitive needs a positive multiple of three indices");
+    }
     tg3_buffer_view const& view = model.buffer_views[accessor.buffer_view];
     uint8_t const* indexData = model.buffers[view.buffer].data.data + view.byte_offset + accessor.byte_offset;
     int const stride = tg3_accessor_byte_stride(&accessor, &view);
@@ -276,6 +286,7 @@ void RasterScene::load(std::filesystem::path const& filePath) {
         size_t mesh;
         size_t material;
     };
+
     std::vector<std::vector<PrimitiveRef>> primitives(model.meshes_count);
     for (uint32_t meshIndex = 0; meshIndex < model.meshes_count; ++meshIndex) {
         tg3_mesh const& source = model.meshes[meshIndex];
@@ -284,6 +295,7 @@ void RasterScene::load(std::filesystem::path const& filePath) {
             if (primitive.material >= 0 && static_cast<uint32_t>(primitive.material) >= model.materials_count) {
                 throw std::runtime_error("primitive references a missing material");
             }
+
             size_t const materialIndex = primitive.material < 0 ? defaultMaterial : primitive.material;
             primitives[meshIndex].push_back({m_meshes.size(), materialIndex});
             m_meshes.push_back(loadPrimitive(model, primitive));
@@ -295,14 +307,17 @@ void RasterScene::load(std::filesystem::path const& filePath) {
         if (nodeIndex < 0 || static_cast<uint32_t>(nodeIndex) >= model.nodes_count) {
             throw std::runtime_error("scene references a missing node");
         }
+
         if (ancestors[nodeIndex]) {
             throw std::runtime_error("scene node hierarchy contains a cycle");
         }
+
         ancestors[nodeIndex] = true;
         tg3_node const& source = model.nodes[nodeIndex];
         if (source.mesh >= 0 && static_cast<uint32_t>(source.mesh) >= model.meshes_count) {
             throw std::runtime_error("node references a missing mesh");
         }
+
         Node node;
         node.localTransform = nodeTransform(source);
         node.mesh = source.mesh;
@@ -310,7 +325,9 @@ void RasterScene::load(std::filesystem::path const& filePath) {
         for (uint32_t i = 0; i < source.children_count; ++i) {
             node.children.push_back(loadNode(source.children[i]));
         }
+
         ancestors[nodeIndex] = false;
+
         return node;
     };
 
@@ -323,7 +340,7 @@ void RasterScene::load(std::filesystem::path const& filePath) {
         glm::mat4 const world = parent * node.localTransform;
         if (node.mesh >= 0) {
             for (PrimitiveRef const& primitive : primitives[node.mesh]) {
-                m_draws.push_back({&m_meshes[primitive.mesh], &m_materials[primitive.material], world});
+                m_drawItems.push_back({&m_meshes[primitive.mesh], &m_materials[primitive.material], world});
             }
         }
         for (Node const& child : node.children) {
@@ -336,18 +353,34 @@ void RasterScene::load(std::filesystem::path const& filePath) {
 }
 
 void RasterScene::uploadTextures() {
+    std::shared_ptr<gfx::Sampler> materialSampler;
     for (PbrMaterial& material : m_materials) {
         for (int i = 0; i < 5; ++i) {
             UnifiedTexture2D& texture = material.textures[i];
             if (!material.hasTexture[i]) {
                 continue;
             }
-            texture.gpuTexture = makeRasterTexture({texture.cpuTexture->width(), texture.cpuTexture->height()},
-                                                   gfx::Texture::Format::RGBA8,
-                                                   gfx::Texture::ExternalFormat::RGBA,
-                                                   gfx::Texture::PixelType::UByte,
-                                                   texture.cpuTexture->pixels(),
-                                                   true);
+            texture.gpuTexture = std::make_unique<gfx::Texture2D>(
+                gfx::Texture2D::Specification{
+                    .width = static_cast<uint32_t>(texture.cpuTexture->width()),
+                    .height = static_cast<uint32_t>(texture.cpuTexture->height()),
+                    .format = gfx::Texture::Format::RGBA8,
+                    .pixelFormat = gfx::Texture::ExternalFormat::RGBA,
+                    .pixelType = gfx::Texture::PixelType::UByte,
+                    .generateMipmap = false,
+                    .mipmapLevels = 1,
+                    .isImmutable = false,
+                },
+                texture.cpuTexture->pixels());
+            if (!materialSampler) {
+                materialSampler = std::make_shared<gfx::Sampler>(gfx::Sampler::Description{
+                    .minFilter = gfx::Sampler::Filter::Linear,
+                    .magFilter = gfx::Sampler::Filter::Linear,
+                    .addressModeU = gfx::Sampler::AddressMode::Repeat,
+                    .addressModeV = gfx::Sampler::AddressMode::Repeat,
+                });
+            }
+            texture.gpuSampler = materialSampler;
         }
     }
 }

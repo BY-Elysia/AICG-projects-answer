@@ -92,10 +92,6 @@ CpuTexture2D::CpuTexture2D(CpuTexture2D&& rhs) noexcept
     , m_dataType(rhs.m_dataType)
     , m_components(std::exchange(rhs.m_components, 0))
     , m_bytesPerComponent(std::exchange(rhs.m_bytesPerComponent, 0))
-    , m_addressModeS(rhs.m_addressModeS)
-    , m_addressModeT(rhs.m_addressModeT)
-    , m_minFilter(rhs.m_minFilter)
-    , m_magFilter(rhs.m_magFilter)
     , m_mipLevels(std::exchange(rhs.m_mipLevels, {})) {}
 
 CpuTexture2D& CpuTexture2D::operator=(CpuTexture2D&& rhs) noexcept {
@@ -106,30 +102,10 @@ CpuTexture2D& CpuTexture2D::operator=(CpuTexture2D&& rhs) noexcept {
         m_dataType = rhs.m_dataType;
         m_components = std::exchange(rhs.m_components, 0);
         m_bytesPerComponent = std::exchange(rhs.m_bytesPerComponent, 0);
-        m_addressModeS = rhs.m_addressModeS;
-        m_addressModeT = rhs.m_addressModeT;
-        m_minFilter = rhs.m_minFilter;
-        m_magFilter = rhs.m_magFilter;
         m_mipLevels = std::exchange(rhs.m_mipLevels, {});
     }
 
     return *this;
-}
-
-void CpuTexture2D::setAddressModeS(AddressMode addressMode) {
-    m_addressModeS = addressMode;
-}
-
-void CpuTexture2D::setAddressModeT(AddressMode addressMode) {
-    m_addressModeT = addressMode;
-}
-
-void CpuTexture2D::setMinFilter(Filter filter) {
-    m_minFilter = filter;
-}
-
-void CpuTexture2D::setMagFilter(Filter filter) {
-    m_magFilter = filter;
 }
 
 void CpuTexture2D::generatorMipMap() {
@@ -180,28 +156,6 @@ void CpuTexture2D::updatePixels(void const* pixels) {
         glm::vec4 const value = sourceTexel(sourcePixels + texelIndex * sourceStride);
         writeTexel(destinationPixels + texelIndex * destinationStride, value);
     }
-}
-
-glm::vec4 CpuTexture2D::sample(glm::vec2 const& uv) const {
-    return sampleLevel(uv, 0, texelFilter(m_minFilter));
-}
-
-glm::vec4 CpuTexture2D::sampleMipMap(glm::vec2 const& uv, float levelOfDetail) const {
-    float const maxLevel = static_cast<float>(m_mipLevels.size() - 1);
-    float const clampedLevel = std::clamp(levelOfDetail, 0.0f, maxLevel);
-    if (m_minFilter == Filter::Nearest || m_minFilter == Filter::Linear) {
-        return sampleLevel(uv, 0, m_minFilter);
-    }
-    if (!isTrilinear(m_minFilter)) {
-        size_t const level = static_cast<size_t>(std::floor(clampedLevel + 0.5f));
-        return sampleLevel(uv, level, texelFilter(m_minFilter));
-    }
-    size_t const lowerLevel = static_cast<size_t>(std::floor(clampedLevel));
-    size_t const upperLevel = std::min(lowerLevel + 1, m_mipLevels.size() - 1);
-    float const blend = clampedLevel - static_cast<float>(lowerLevel);
-    glm::vec4 const lower = sampleLevel(uv, lowerLevel, texelFilter(m_minFilter));
-    glm::vec4 const upper = sampleLevel(uv, upperLevel, texelFilter(m_minFilter));
-    return glm::mix(lower, upper, blend);
 }
 
 int CpuTexture2D::width() const {
@@ -389,37 +343,9 @@ CpuTexture2D::DataType CpuTexture2D::canonicalDataType(InternalFormat format) no
     return DataType::UnsignedByte;
 }
 
-CpuTexture2D::Filter CpuTexture2D::texelFilter(Filter filter) noexcept {
-    switch (filter) {
-    case Filter::Nearest:
-    case Filter::NearestMipmapNearest:
-    case Filter::NearestMipmapLinear:
-        return Filter::Nearest;
-    case Filter::Linear:
-    case Filter::LinearMipmapNearest:
-    case Filter::LinearMipmapLinear:
-        return Filter::Linear;
-    }
-    return Filter::Nearest;
-}
-
-bool CpuTexture2D::isTrilinear(Filter filter) noexcept {
-    switch (filter) {
-    case Filter::NearestMipmapLinear:
-    case Filter::LinearMipmapLinear:
-        return true;
-    case Filter::Nearest:
-    case Filter::Linear:
-    case Filter::NearestMipmapNearest:
-    case Filter::LinearMipmapNearest:
-        return false;
-    }
-    return false;
-}
-
 glm::vec4 CpuTexture2D::texelFromLevel(void const* pixels, int width, int height, int x, int y) const {
-    x = resolveCoordinate(x, width, m_addressModeS);
-    y = resolveCoordinate(y, height, m_addressModeT);
+    x = std::clamp(x, 0, width - 1);
+    y = std::clamp(y, 0, height - 1);
     size_t const texelIndex = static_cast<size_t>(y) * width + x;
     size_t const texelStride = m_components * m_bytesPerComponent;
     auto const* source = static_cast<std::byte const*>(pixels) + texelIndex * texelStride;
@@ -430,36 +356,6 @@ glm::vec4 CpuTexture2D::texelFromLevel(void const* pixels, int width, int height
     }
 
     return result;
-}
-
-glm::vec4 CpuTexture2D::sampleLevel(glm::vec2 const& inputUv, size_t level, Filter filter) const {
-    MipLevel const& mipLevel = m_mipLevels[std::min(level, m_mipLevels.size() - 1)];
-    void const* levelPixels = mipLevel.pixels;
-    int const levelWidth = mipLevel.width;
-    int const levelHeight = mipLevel.height;
-    glm::vec2 const uv(resolveUv(inputUv.x, m_addressModeS), resolveUv(inputUv.y, m_addressModeT));
-    if (filter == Filter::Nearest) {
-        return texelFromLevel(levelPixels,
-                              levelWidth,
-                              levelHeight,
-                              static_cast<int>(std::floor(uv.x * static_cast<float>(levelWidth))),
-                              static_cast<int>(std::floor(uv.y * static_cast<float>(levelHeight))));
-    }
-
-    float const x = uv.x * static_cast<float>(levelWidth) - 0.5f;
-    float const y = uv.y * static_cast<float>(levelHeight) - 0.5f;
-    int const x0 = static_cast<int>(std::floor(x));
-    int const y0 = static_cast<int>(std::floor(y));
-    float const tx = x - std::floor(x);
-    float const ty = y - std::floor(y);
-    glm::vec4 const lower = glm::mix(texelFromLevel(levelPixels, levelWidth, levelHeight, x0, y0),
-                                     texelFromLevel(levelPixels, levelWidth, levelHeight, x0 + 1, y0),
-                                     tx);
-    glm::vec4 const upper = glm::mix(texelFromLevel(levelPixels, levelWidth, levelHeight, x0, y0 + 1),
-                                     texelFromLevel(levelPixels, levelWidth, levelHeight, x0 + 1, y0 + 1),
-                                     tx);
-
-    return glm::mix(lower, upper, ty);
 }
 
 glm::vec4 CpuTexture2D::sourceTexel(std::byte const* source) const {
@@ -559,35 +455,4 @@ float CpuTexture2D::storedComponent(std::byte const* source) const {
     }
 
     return 0.0f;
-}
-
-int CpuTexture2D::resolveCoordinate(int coordinate, int extent, AddressMode addressMode) noexcept {
-    switch (addressMode) {
-    case AddressMode::Repeat:
-        return (coordinate % extent + extent) % extent;
-    case AddressMode::MirroredRepeat: {
-        int const mirroredExtent = extent * 2;
-        int const wrapped = (coordinate % mirroredExtent + mirroredExtent) % mirroredExtent;
-        return wrapped < extent ? wrapped : mirroredExtent - 1 - wrapped;
-    }
-    case AddressMode::ClampToEdge:
-        return std::clamp(coordinate, 0, extent - 1);
-    }
-    return std::clamp(coordinate, 0, extent - 1);
-}
-
-float CpuTexture2D::resolveUv(float coordinate, AddressMode addressMode) noexcept {
-    switch (addressMode) {
-    case AddressMode::Repeat:
-        return glm::fract(coordinate);
-    case AddressMode::MirroredRepeat: {
-        float const interval = std::floor(coordinate);
-        float const fraction = coordinate - interval;
-        return std::fmod(interval, 2.0f) == 0.0f ? fraction : 1.0f - fraction;
-    }
-    case AddressMode::ClampToEdge:
-        return std::clamp(coordinate, 0.0f, 1.0f);
-    }
-
-    return std::clamp(coordinate, 0.0f, 1.0f);
 }

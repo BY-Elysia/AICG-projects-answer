@@ -4,7 +4,6 @@
 #include <array>
 #include <cmath>
 #include <iostream>
-#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -89,23 +88,14 @@ static Mesh testMesh(std::vector<TestTriangle> const& triangles) {
 void SoftwareRendererApp::validateBackends() {
     auto checkDraws = [this](std::string const& label,
                              FrameState const& frame,
-                             std::vector<DrawItem> const& draws,
-                             bool expectGeometry,
-                             std::optional<uint32_t> expectedTriangles = std::nullopt) {
+                             std::vector<DrawItem> const& drawItems,
+                             bool expectGeometry) {
         m_cpuRenderer->resize(frame.extent);
-        auto const cpuStats = m_cpuRenderer->render(draws, frame);
+        m_cpuRenderer->render(drawItems, frame);
         auto const cpu = readOutput(m_cpuRenderer->outputTexture());
         m_gpuRenderer->resize(frame.extent);
-        auto const gpuStats = m_gpuRenderer->render(draws, frame);
+        m_gpuRenderer->render(drawItems, frame);
         auto const gpu = readOutput(m_gpuRenderer->outputTexture());
-        uint32_t sourceTriangles = 0;
-        for (DrawItem const& draw : draws) {
-            sourceTriangles += static_cast<uint32_t>(draw.mesh->indices().size() / 3);
-        }
-        if (gpuStats.triangleCount != sourceTriangles ||
-            (expectedTriangles && cpuStats.triangleCount != *expectedTriangles)) {
-            throw std::runtime_error(label + ": triangle statistics differ");
-        }
         compareOutputs(label, cpu, gpu, expectGeometry);
         if (glGetError() != GL_NO_ERROR) {
             throw std::runtime_error(label + ": OpenGL error");
@@ -117,10 +107,9 @@ void SoftwareRendererApp::validateBackends() {
                      Mesh const& mesh,
                      PbrMaterial const& material,
                      bool expectGeometry,
-                     std::optional<uint32_t> expectedTriangles = std::nullopt,
                      glm::mat4 const& transform = glm::mat4{1}) {
         DrawItem const draw{&mesh, &material, transform};
-        return checkDraws(label, frame, std::vector{draw}, expectGeometry, expectedTriangles);
+        return checkDraws(label, frame, std::vector{draw}, expectGeometry);
     };
 
     FrameState frame;
@@ -135,17 +124,17 @@ void SoftwareRendererApp::validateBackends() {
             frame.model = glm::rotate(glm::mat4{1}, angle, glm::vec3{0, 1, 0});
             checkDraws("helmet " + std::to_string(extent.x) + " angle " + std::to_string(angle),
                        frame,
-                       m_scene->draws(),
+                       m_scene->drawItems(),
                        true);
         }
     }
-    if (m_scene->draws().size() != 1 || m_scene->draws()[0].mesh->gpuUploadCount() != 1 ||
-        m_scene->draws()[0].mesh->gpuIndexUploadCount() != 1) {
+    if (m_scene->drawItems().size() != 1 || m_scene->drawItems()[0].mesh->gpuUploadCount() != 1 ||
+        m_scene->drawItems()[0].mesh->gpuIndexUploadCount() != 1) {
         throw std::runtime_error("Static mesh buffers were uploaded more than once");
     }
     // Exercise shared clipping with a model intersecting the side planes.
     frame.model = glm::translate(glm::mat4{1}, glm::vec3{1.7f, 0, 0});
-    checkDraws("clipped helmet", frame, m_scene->draws(), true);
+    checkDraws("clipped helmet", frame, m_scene->drawItems(), true);
 
     frame.extent = {127, 97};
     frame.model = glm::mat4{1};
@@ -156,7 +145,7 @@ void SoftwareRendererApp::validateBackends() {
     simple.metallicFactor = 0;
     simple.roughnessFactor = 0.8f;
     RasterScene hierarchy(getAssetPath("models/HierarchyTest.gltf"));
-    auto const& hierarchyDraws = hierarchy.draws();
+    auto const& hierarchyDraws = hierarchy.drawItems();
     if (hierarchyDraws.size() != 4 || hierarchyDraws[0].mesh == hierarchyDraws[1].mesh ||
         hierarchyDraws[2].mesh != hierarchyDraws[3].mesh || hierarchyDraws[0].material == hierarchyDraws[1].material ||
         hierarchyDraws[1].material == hierarchyDraws[2].material ||
@@ -166,7 +155,7 @@ void SoftwareRendererApp::validateBackends() {
         glm::vec3(hierarchyDraws[3].transform[3]) != glm::vec3(-5, 0, 0.1f)) {
         throw std::runtime_error("Hierarchical glTF draw list is incorrect");
     }
-    auto const hierarchyPixels = checkDraws("hierarchical glTF", frame, hierarchyDraws, true, 4);
+    auto const hierarchyPixels = checkDraws("hierarchical glTF", frame, hierarchyDraws, true);
     for (DrawItem const& draw : hierarchyDraws) {
         if (draw.mesh->gpuUploadCount() != 1 || draw.mesh->gpuIndexUploadCount() != 1) {
             throw std::runtime_error("Shared scene mesh buffers were uploaded more than once");
@@ -184,31 +173,45 @@ void SoftwareRendererApp::validateBackends() {
         throw std::runtime_error("Hierarchical glTF did not display all three materials");
     }
     std::vector<TestTriangle> triangles{{0.8f, {0, 1, 0}}, {0.2f, {0, 0, 1}}};
-    auto const depthForward = check("overlapping depth", frame, testMesh(triangles), simple, true, 2);
+    auto const depthForward = check("overlapping depth", frame, testMesh(triangles), simple, true);
     std::reverse(triangles.begin(), triangles.end());
-    auto const depthReverse = check("reversed depth order", frame, testMesh(triangles), simple, true, 2);
+    auto const depthReverse = check("reversed depth order", frame, testMesh(triangles), simple, true);
     if (depthForward != depthReverse) {
         throw std::runtime_error("Visibility depends on submission order for different depths");
     }
+    Mesh farMesh = testMesh({{0.8f, {0, 1, 0}}});
+    Mesh nearMesh = testMesh({{0.2f, {0, 0, 1}}});
+    auto const depthAcrossDraws =
+        checkDraws("depth across draw items", frame, {{&farMesh, &simple}, {&nearMesh, &simple}}, true);
+    if (depthAcrossDraws != depthForward) {
+        throw std::runtime_error("Depth was not shared across draw items");
+    }
     Mesh reindexed = testMesh({{0.8f, {0, 1, 0}}, {0.2f, {0, 0, 1}}});
-    auto const originalIndices = check("cached indices", frame, reindexed, simple, true, 2);
+    auto const originalIndices = check("cached indices", frame, reindexed, simple, true);
     reindexed.editIndices() = {0, 1, 2, 3, 5, 4};
-    auto const updatedIndices = check("updated indices", frame, reindexed, simple, true, 1);
+    auto const updatedIndices = check("updated indices", frame, reindexed, simple, true);
     if (originalIndices == updatedIndices || reindexed.gpuUploadCount() != 1 || reindexed.gpuIndexUploadCount() != 2) {
         throw std::runtime_error("Modified mesh indices were not used or reuploaded");
     }
     triangles = {{0.2f, {0, 1, 0}}, {0.2f, {0, 0, 1}}};
-    auto const tieForward = check("equal depth first owner", frame, testMesh(triangles), simple, true, 2);
+    auto const tieForward = check("equal depth first owner", frame, testMesh(triangles), simple, true);
     std::reverse(triangles.begin(), triangles.end());
-    auto const tieReverse = check("equal depth reversed owner", frame, testMesh(triangles), simple, true, 2);
+    auto const tieReverse = check("equal depth reversed owner", frame, testMesh(triangles), simple, true);
     if (tieForward == tieReverse) {
         throw std::runtime_error("Equal-depth test did not distinguish the two materials");
+    }
+    Mesh firstMesh = testMesh({{0.2f, {0, 1, 0}}});
+    Mesh secondMesh = testMesh({{0.2f, {0, 0, 1}}});
+    auto const tieAcrossDraws =
+        checkDraws("equal depth across draw items", frame, {{&firstMesh, &simple}, {&secondMesh, &simple}}, true);
+    if (tieAcrossDraws != tieForward) {
+        throw std::runtime_error("Equal-depth draw item order was not preserved");
     }
     // Put the visible triangle after more than 1024 references in the same tile. The old
     // fixed-capacity GPU list discarded it; variable-length lists must retain every reference.
     triangles.assign(1300, {0.8f, {0, 1, 0}});
     triangles.push_back({0.2f, {0, 0, 1}});
-    auto const crowded = check("1301 triangles per tile", frame, testMesh(triangles), simple, true, 1301);
+    auto const crowded = check("1301 triangles per tile", frame, testMesh(triangles), simple, true);
     if (crowded != depthForward) {
         throw std::runtime_error("Crowded tile did not retain its nearest triangle");
     }
@@ -216,11 +219,11 @@ void SoftwareRendererApp::validateBackends() {
     // construct new triangles before fixed-function clipping.
     Mesh nearPlane = testMesh({{0.2f, {0, 0, 1}}});
     nearPlane.editVertices().front().position.z = 0.2f;
-    check("near-plane clipping", frame, nearPlane, simple, true, 2);
+    check("near-plane clipping", frame, nearPlane, simple, true);
     for (auto& vertex : nearPlane.editVertices()) {
         vertex.position.z = 0.2f;
     }
-    check("fully clipped mesh", frame, nearPlane, simple, false, 0);
+    check("fully clipped mesh", frame, nearPlane, simple, false);
     if (nearPlane.gpuUploadCount() != 2) {
         throw std::runtime_error("Modified mesh vertices were not reuploaded");
     }
@@ -237,17 +240,17 @@ void SoftwareRendererApp::validateBackends() {
     };
     crossingCamera.editIndices() = {0, 1, 2};
     check("triangle crossing camera plane", perspectiveFrame, crossingCamera, simple, true);
-    checkDraws("empty scene", frame, {}, false, 0);
+    checkDraws("empty scene", frame, {}, false);
 
     // The scene keeps local vertices. Node transforms must be applied inside each renderer.
     Mesh transformed = testMesh({{0.2f, {0, 1, 0}}});
     glm::mat4 const nodeMatrix = glm::translate(glm::mat4{1}, glm::vec3{12, 2, 0}) *
                                  glm::rotate(glm::mat4{1}, 0.2f, glm::vec3{0, 0, 1}) *
                                  glm::scale(glm::mat4{1}, glm::vec3{0.8f, 0.9f, 1});
-    auto const nodeTransform = check("mesh node transform", frame, transformed, simple, true, 1, nodeMatrix);
+    auto const nodeTransform = check("mesh node transform", frame, transformed, simple, true, nodeMatrix);
     FrameState instanceFrame = frame;
     instanceFrame.model = nodeMatrix;
-    auto const instanceTransform = check("equivalent instance transform", instanceFrame, transformed, simple, true, 1);
+    auto const instanceTransform = check("equivalent instance transform", instanceFrame, transformed, simple, true);
     compareOutputs("node/instance transform equivalence", nodeTransform, instanceTransform, true);
 
     for (Renderer* renderer :

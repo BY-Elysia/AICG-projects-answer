@@ -16,8 +16,8 @@ public:
 
     RasterScene& operator=(RasterScene const&) = delete;
 
-    std::vector<DrawItem> const& draws() const {
-        return m_draws;
+    std::vector<DrawItem> const& drawItems() const {
+        return m_drawItems;
     }
 
 private:
@@ -30,7 +30,7 @@ private:
     std::vector<Mesh> m_meshes;
     std::vector<PbrMaterial> m_materials;
     std::vector<Node> m_roots;
-    std::vector<DrawItem> m_draws;
+    std::vector<DrawItem> m_drawItems;
 
 private:
     void load(std::filesystem::path const& filePath);

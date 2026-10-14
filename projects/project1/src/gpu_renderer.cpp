@@ -7,7 +7,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <common/timer.h>
 #include <graphics/rhi.h>
 
 GpuRenderer::GpuRenderer(uint32_t width,
@@ -59,14 +58,30 @@ void GpuRenderer::transformVertices(Mesh const& mesh, glm::mat4 const& transform
     if (!m_transformedBuffer) {
         m_transformedBuffer = std::make_unique<gfx::Buffer>(
             gfx::Buffer::UsageFlags::TransformFeedbackBuffer, outputBytes, gfx::Buffer::Usage::DynamicDraw);
-        for (uint32_t attribute = 0; attribute < 4; ++attribute) {
-            m_feedbackVao.setFloatAttribute(*m_transformedBuffer,
-                                            {attribute,
-                                             4,
-                                             gfx::VertexArray::DataType::Float32,
-                                             sizeof(TransformedVertex),
-                                             static_cast<intptr_t>(attribute * sizeof(glm::vec4))});
-        }
+        m_feedbackVao.setFloatAttribute(*m_transformedBuffer,
+                                        {0,
+                                         4,
+                                         gfx::VertexArray::DataType::Float32,
+                                         sizeof(TransformedVertex),
+                                         static_cast<intptr_t>(offsetof(TransformedVertex, clip))});
+        m_feedbackVao.setFloatAttribute(*m_transformedBuffer,
+                                        {1,
+                                         3,
+                                         gfx::VertexArray::DataType::Float32,
+                                         sizeof(TransformedVertex),
+                                         static_cast<intptr_t>(offsetof(TransformedVertex, worldPosition))});
+        m_feedbackVao.setFloatAttribute(*m_transformedBuffer,
+                                        {2,
+                                         3,
+                                         gfx::VertexArray::DataType::Float32,
+                                         sizeof(TransformedVertex),
+                                         static_cast<intptr_t>(offsetof(TransformedVertex, normal))});
+        m_feedbackVao.setFloatAttribute(*m_transformedBuffer,
+                                        {3,
+                                         2,
+                                         gfx::VertexArray::DataType::Float32,
+                                         sizeof(TransformedVertex),
+                                         static_cast<intptr_t>(offsetof(TransformedVertex, uv))});
     }
     else if (m_transformedBuffer->getSize() != outputBytes) {
         m_transformedBuffer->resize(outputBytes, gfx::Buffer::Usage::DynamicDraw);
@@ -94,6 +109,7 @@ void GpuRenderer::setMaterial(PbrMaterial const& material) {
     for (int i = 0; i < 5; ++i) {
         if (material.hasTexture[i]) {
             material.textures[i].gpuTexture->bind(i);
+            material.textures[i].gpuSampler->bind(i);
         }
 
         m_rasterProgram->setUniform("uHasTexture[" + std::to_string(i) + "]", material.hasTexture[i]);
@@ -105,15 +121,9 @@ void GpuRenderer::setMaterial(PbrMaterial const& material) {
     m_rasterProgram->setUniform("uOcclusionStrength", material.occlusionStrength);
 }
 
-RendererStats GpuRenderer::render(std::vector<DrawItem> const& draws, FrameState const& frame) {
-    Timer timer;
-    timer.tick();
-    uint32_t sourceTriangleCount = 0;
-    for (DrawItem const& draw : draws) {
-        if (!draw.mesh || !draw.material) {
-            throw std::invalid_argument("Draw item needs a mesh and material");
-        }
-        auto const& indices = draw.mesh->indices();
+void GpuRenderer::render(std::vector<DrawItem> const& drawItems, FrameState const& frame) {
+    for (DrawItem const& drawItem : drawItems) {
+        auto const& indices = drawItem.mesh->indices();
         if (indices.size() % 3 != 0) {
             throw std::invalid_argument("Mesh indices must describe complete triangles");
         }
@@ -121,54 +131,26 @@ RendererStats GpuRenderer::render(std::vector<DrawItem> const& draws, FrameState
             throw std::runtime_error("Too many indices for the GPU vertex pass");
         }
         for (uint32_t index : indices) {
-            if (index >= draw.mesh->vertices().size()) {
+            if (index >= drawItem.mesh->vertices().size()) {
                 throw std::invalid_argument("Mesh index references a missing vertex");
             }
-        }
-        if (indices.size() / 3 > std::numeric_limits<uint32_t>::max() - sourceTriangleCount) {
-            throw std::runtime_error("Too many source triangles");
-        }
-        sourceTriangleCount += static_cast<uint32_t>(indices.size() / 3);
-    }
-    for (size_t i = 0; i < m_timeQueries.size(); ++i) {
-        if (!m_queryPending[i]) {
-            continue;
-        }
-        if (m_timeQueries[i].available()) {
-            m_lastGpuMilliseconds = m_timeQueries[i].getElapsedTime() * 1000.0f;
-            m_queryPending[i] = false;
-        }
-    }
-    int queryIndex = -1;
-    for (size_t i = 0; i < m_timeQueries.size(); ++i) {
-        if (!m_queryPending[i]) {
-            queryIndex = static_cast<int>(i);
-            break;
         }
     }
 
     m_framebuffer->bind();
     gfx::RHI::setViewport({static_cast<uint32_t>(m_extent.x), static_cast<uint32_t>(m_extent.y)});
-    gfx::RHI::enableBlend(false);
     gfx::RHI::enableCullFace(false);
-    gfx::RHI::enableScissorTest(false);
     gfx::RHI::enableDepthTest(true);
     gfx::RHI::setDepthFunc(gfx::RHI::CompareFunc::Less);
     gfx::RHI::enableDepthWrite(true);
     gfx::RHI::setClearColor({0.025f, 0.03f, 0.04f, 1.0f});
     gfx::RHI::setClearDepth(1.0f);
-    if (queryIndex >= 0) {
-        m_timeQueries[queryIndex].tick();
-    }
     gfx::RHI::clear(true, true);
 
     glm::mat4 const viewProjection = frame.projection * frame.view;
     glm::mat4 const inverseViewProjection = glm::inverse(viewProjection);
-    for (DrawItem const& draw : draws) {
-        if (draw.mesh->indices().empty()) {
-            continue;
-        }
-        transformVertices(*draw.mesh, draw.transform, frame);
+    for (DrawItem const& drawItem : drawItems) {
+        transformVertices(*drawItem.mesh, drawItem.transform, frame);
 
         m_rasterProgram->use();
         m_rasterProgram->setUniform("uExtent", glm::vec2(frame.extent));
@@ -178,16 +160,15 @@ RendererStats GpuRenderer::render(std::vector<DrawItem> const& draws, FrameState
         m_rasterProgram->setUniform("uLightDirection", frame.directionalLight.transform.getFront());
         m_rasterProgram->setUniform("uLightColor", frame.directionalLight.color);
         m_rasterProgram->setUniform("uLightIntensity", frame.directionalLight.intensity);
-        setMaterial(*draw.material);
+        setMaterial(*drawItem.material);
         m_feedbackVao.bind();
         m_transformFeedback.draw(gfx::RHI::Primitive::Triangles);
         gfx::VertexArray::unbind();
     }
+
+    for (uint32_t unit = 0; unit < 5; ++unit) {
+        gfx::Sampler::unbind(unit);
+    }
     gfx::Framebuffer::unbind();
     gfx::RHI::enableDepthTest(false);
-    if (queryIndex >= 0) {
-        m_timeQueries[queryIndex].tock();
-        m_queryPending[queryIndex] = true;
-    }
-    return {m_lastGpuMilliseconds, sourceTriangleCount, static_cast<float>(timer.tock() * 1000.0)};
 }

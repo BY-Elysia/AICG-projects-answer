@@ -5,9 +5,9 @@ layout(triangle_strip, max_vertices = 4) out;
 
 in VertexData {
     vec4 clip;
-    vec4 worldPosition;
-    vec4 normal;
-    vec4 uv;
+    vec3 worldPosition;
+    vec3 normal;
+    vec2 uv;
 } vertexData[];
 
 flat out vec3 gWorld[3];
@@ -18,9 +18,9 @@ uniform vec2 uExtent;
 
 void emitCorner(vec2 corner) {
     for (int i = 0; i < 3; ++i) {
-        gWorld[i] = vertexData[i].worldPosition.xyz;
-        gNormal[i] = vertexData[i].normal.xyz;
-        gUv[i] = vertexData[i].uv.xy;
+        gWorld[i] = vertexData[i].worldPosition;
+        gNormal[i] = vertexData[i].normal;
+        gUv[i] = vertexData[i].uv;
     }
     gl_Position = vec4(corner, 0.0, 1.0);
     EmitVertex();

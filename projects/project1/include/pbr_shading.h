@@ -35,13 +35,15 @@ inline glm::vec3 shade(PbrMaterial const& material,
     // filter, so every material map below samples only level zero, matching the GPU path.
     glm::vec4 baseColor = material.baseColorFactor;
     if (material.hasTexture[PbrMaterial::BaseColor]) {
-        glm::vec4 const sampledColor = material.textures[PbrMaterial::BaseColor].cpuTexture->sample(uv);
+        auto const& texture = material.textures[PbrMaterial::BaseColor];
+        glm::vec4 const sampledColor = texture.cpuSampler.sample(*texture.cpuTexture, uv);
         baseColor *= glm::vec4(srgbToLinear(glm::vec3(sampledColor)), sampledColor.a);
     }
     float roughness = material.roughnessFactor;
     float metallic = material.metallicFactor;
     if (material.hasTexture[PbrMaterial::MetallicRoughness]) {
-        glm::vec4 const sampledColor = material.textures[PbrMaterial::MetallicRoughness].cpuTexture->sample(uv);
+        auto const& texture = material.textures[PbrMaterial::MetallicRoughness];
+        glm::vec4 const sampledColor = texture.cpuSampler.sample(*texture.cpuTexture, uv);
         roughness *= sampledColor.g;
         metallic *= sampledColor.b;
     }
@@ -51,8 +53,8 @@ inline glm::vec3 shade(PbrMaterial const& material,
     // Convert a tangent-space normal-map sample into the interpolated world-space frame.
     normal = glm::normalize(normal);
     if (material.hasTexture[PbrMaterial::Normal]) {
-        glm::vec3 const tangentNormal =
-            glm::vec3(material.textures[PbrMaterial::Normal].cpuTexture->sample(uv)) * 2.0f - 1.0f;
+        auto const& texture = material.textures[PbrMaterial::Normal];
+        glm::vec3 const tangentNormal = glm::vec3(texture.cpuSampler.sample(*texture.cpuTexture, uv)) * 2.0f - 1.0f;
         glm::vec3 const orthogonalTangent = glm::normalize(tangent - normal * glm::dot(normal, tangent));
         normal = glm::normalize(glm::mat3(orthogonalTangent, glm::normalize(bitangent), normal) * tangentNormal);
     }
@@ -77,12 +79,14 @@ inline glm::vec3 shade(PbrMaterial const& material,
     glm::vec3 color = (diffuse + specular) * frame.directionalLight.color * frame.directionalLight.intensity * nDotL;
     // Ambient occlusion modulates the direct result, then emissive is added without lighting.
     if (material.hasTexture[PbrMaterial::Occlusion]) {
-        float const occlusion = material.textures[PbrMaterial::Occlusion].cpuTexture->sample(uv).r;
+        auto const& texture = material.textures[PbrMaterial::Occlusion];
+        float const occlusion = texture.cpuSampler.sample(*texture.cpuTexture, uv).r;
         color *= 1.0f + material.occlusionStrength * (occlusion - 1.0f);
     }
     glm::vec3 emissive = material.emissiveFactor;
     if (material.hasTexture[PbrMaterial::Emissive]) {
-        emissive *= srgbToLinear(glm::vec3(material.textures[PbrMaterial::Emissive].cpuTexture->sample(uv)));
+        auto const& texture = material.textures[PbrMaterial::Emissive];
+        emissive *= srgbToLinear(glm::vec3(texture.cpuSampler.sample(*texture.cpuTexture, uv)));
     }
 
     return color + emissive;

@@ -5,6 +5,7 @@
 #include <scene/camera/camera.h>
 #include <scene/light/light.h>
 #include <graphics/gl_program.h>
+#include <graphics/sampler.h>
 #include <graphics/vertex_array.h>
 #include "cpu_renderer.h"
 #include "gpu_renderer.h"
@@ -31,16 +32,17 @@ private:
     // renderer
     std::unique_ptr<CpuRenderer> m_cpuRenderer;
     std::unique_ptr<GpuRenderer> m_gpuRenderer;
-    RenderBackend m_renderBackend = RenderBackend::Gpu;
-    RendererStats m_stats;
+    RenderBackend m_renderBackend = RenderBackend::Cpu;
 
     // display
     std::unique_ptr<gfx::GLProgram> m_displayProgram;
+    gfx::Sampler m_displaySampler{gfx::Sampler::Description{
+        .minFilter = gfx::Sampler::Filter::Nearest,
+        .magFilter = gfx::Sampler::Filter::Nearest,
+        .addressModeU = gfx::Sampler::AddressMode::ClampToEdge,
+        .addressModeV = gfx::Sampler::AddressMode::ClampToEdge,
+    }};
     gfx::VertexArray m_fullscreenVao;
-
-    // fps
-    float m_titleSeconds = 0.0f;
-    uint32_t m_titleFrames = 0;
 
 private:
     void handleEvent(Event& event) override;

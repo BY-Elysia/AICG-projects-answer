@@ -1,7 +1,7 @@
 #include "software_renderer_app.h"
 
-#include <stdexcept>
 #include <format>
+#include <stdexcept>
 #include <common/event/event_dispatcher.h>
 #include <common/event/keyboard_event.h>
 #include <common/event/window_event.h>
@@ -109,14 +109,9 @@ void SoftwareRendererApp::renderFrame() {
         return;
     }
 
-    // show fps in the window title periodically
-    m_titleSeconds += getDeltaTime();
-    ++m_titleFrames;
-    if (m_titleSeconds >= 1.0f) {
-        m_window.setTitle(std::format("Software Renderer | {:.1f} FPS", m_titleFrames / m_titleSeconds));
-        m_titleSeconds = 0.0f;
-        m_titleFrames = 0;
-    }
+    float const deltaTime = getDeltaTime();
+    float const fps = deltaTime > 0.0f ? 1.0f / deltaTime : 0.0f;
+    m_window.setTitle(std::format("Software Renderer | {:.1f} FPS", fps));
 
     // render the scene
     FrameState frame{
@@ -130,7 +125,7 @@ void SoftwareRendererApp::renderFrame() {
 
     Renderer& renderer = m_renderBackend == RenderBackend::Cpu ? static_cast<Renderer&>(*m_cpuRenderer)
                                                                : static_cast<Renderer&>(*m_gpuRenderer);
-    m_stats = renderer.render(m_scene->draws(), frame);
+    renderer.render(m_scene->drawItems(), frame);
     auto const& output = renderer.outputTexture();
 
     // display the render result on the screen
@@ -138,12 +133,15 @@ void SoftwareRendererApp::renderFrame() {
     gfx::RHI::setViewport({0, 0, width, height});
 
     m_displayProgram->use();
-    output.bind(m_displayProgram->getTextureBinding("uHdrColor"));
+    auto const hdrTextureUnit = m_displayProgram->getTextureBinding("uHdrColor");
+    output.bind(hdrTextureUnit);
+    m_displaySampler.bind(hdrTextureUnit);
 
     m_fullscreenVao.bind();
     gfx::RHI::draw(gfx::RHI::Primitive::Triangles, 0, 3);
     gfx::VertexArray::unbind();
 
+    gfx::Sampler::unbind(hdrTextureUnit);
     output.unbind();
 
     // render UI elements
@@ -162,12 +160,6 @@ void SoftwareRendererApp::renderUi() {
         ImGui::RadioButton("GPU fragment", &mode, static_cast<int>(RenderBackend::Gpu));
         m_renderBackend = static_cast<RenderBackend>(mode);
         ImGui::Separator();
-        ImGui::Text(m_renderBackend == RenderBackend::Gpu ? "source triangles: %u" : "triangles: %u",
-                    m_stats.triangleCount);
-        ImGui::Text(m_renderBackend == RenderBackend::Gpu ? "CPU submit: %.3f ms" : "geometry time: %.3f ms",
-                    m_stats.preparationMilliseconds);
-        ImGui::Text(m_renderBackend == RenderBackend::Gpu ? "GPU time: %.3f ms" : "raster time: %.3f ms",
-                    m_stats.milliseconds);
         ImGui::ColorEdit3("light color", &m_directionalLight.color.x);
         ImGui::SliderFloat("light intensity", &m_directionalLight.intensity, 0.0f, 20.0f);
     }
