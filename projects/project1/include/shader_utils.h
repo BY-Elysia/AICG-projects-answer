@@ -32,5 +32,6 @@ inline std::unique_ptr<gfx::GLProgram> makeTransformFeedbackProgram(std::filesys
                                                                     std::vector<std::string> const& varyings) {
     std::vector<gfx::ShaderModule> modules;
     modules.push_back(loadShader(vertexPath, gfx::ShaderModule::Stage::Vertex));
-    return std::make_unique<gfx::GLProgram>(modules, varyings);
+    return std::make_unique<gfx::GLProgram>(
+        modules, gfx::GLProgram::TransformFeedbackBufferMode::Interleaved, varyings);
 }

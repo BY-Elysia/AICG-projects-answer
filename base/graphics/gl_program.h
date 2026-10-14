@@ -166,6 +166,19 @@ public:
         int offset;
     };
 
+    enum class TransformFeedbackBufferMode { None, Interleaved, Separate };
+
+    struct TransformFeedbackVaryingInfo {
+        std::string name;
+        VarType type;
+        int size;
+    };
+
+    struct TransformFeedbackInfo {
+        TransformFeedbackBufferMode bufferMode{TransformFeedbackBufferMode::None};
+        std::vector<TransformFeedbackVaryingInfo> varyings;
+    };
+
     using UniformVarInfoMap = std::map<std::string, UniformVarInfo, std::less<>>;
 
     using TextureInfoMap = std::map<std::string, TextureInfo, std::less<>>;
@@ -179,8 +192,8 @@ public:
     using AtomicCounterInfoMap = std::map<std::string, AtomicCounterInfo, std::less<>>;
 
 public:
-    // Optional interleaved transform-feedback outputs are configured before linking.
     GLProgram(std::vector<ShaderModule> const& shaderModules,
+              TransformFeedbackBufferMode bufferMode = TransformFeedbackBufferMode::None,
               std::vector<std::string> const& transformFeedbackVaryings = {});
 
     GLProgram(GLProgram&& rhs) noexcept = default;
@@ -308,6 +321,10 @@ public:
         return m_atomicCounterInfos;
     }
 
+    TransformFeedbackInfo const& getTransformFeedbackInfo() const noexcept {
+        return m_transformFeedbackInfo;
+    }
+
 private:
     UniformVarInfoMap m_uniformVarInfos;
 
@@ -321,10 +338,15 @@ private:
 
     AtomicCounterInfoMap m_atomicCounterInfos;
 
+    TransformFeedbackInfo m_transformFeedbackInfo;
+
 private:
     void attach(ShaderModule const& shaderModule);
 
     void detach(ShaderModule const& shaderModule);
+
+    void applyTransformFeedbackVaryings(TransformFeedbackBufferMode bufferMode,
+                                        std::vector<std::string> const& transformFeedbackVaryings);
 
     void link();
 
@@ -338,6 +360,8 @@ private:
 
     void queryAtomicCounters();
 
+    void queryTransformFeedbackInfo();
+
     void printUniformVarInfos() const;
 
     void printTextureInfos() const;
@@ -349,6 +373,8 @@ private:
     void printStorageImageInfos() const;
 
     void printAtomicCounterInfos() const;
+
+    void printTransformFeedbackInfo() const;
 
     static bool isTexture(VarType type) noexcept;
 
