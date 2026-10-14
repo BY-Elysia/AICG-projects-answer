@@ -1,4 +1,14 @@
 repos:
+  # Normalize whitespace and line endings before running language formatters.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+
   - repo: https://github.com/pocc/pre-commit-hooks
     rev: v1.3.5
     hooks:
@@ -12,13 +22,3 @@ repos:
     hooks:
       - id: ruff-format
         types_or: [python, pyi, jupyter]
-
-  # Basic repository hygiene
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
-      - id: mixed-line-ending
-        args: [--fix=lf]
-      - id: trailing-whitespace
-        args: [--markdown-linebreak-ext=md]
-      - id: end-of-file-fixer
