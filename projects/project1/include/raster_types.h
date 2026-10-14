@@ -46,7 +46,7 @@ struct DrawItem {
     glm::mat4 transform{1.0f};
 };
 
-// Vertex-stage output, captured as four interleaved vec4 values by transform feedback.
+// Shared vertex-stage layout: CPU prepares these values, GPU captures them as four interleaved vec4s.
 struct alignas(16) TransformedVertex {
     glm::vec4 clip{0.0f};
     glm::vec4 worldPosition{0.0f};
@@ -55,31 +55,6 @@ struct alignas(16) TransformedVertex {
 };
 
 static_assert(sizeof(TransformedVertex) == 64);
-
-// CPU geometry-stage triangle with the attributes needed for software rasterization.
-struct alignas(16) PreparedVertex {
-    // xy is pixel-space position, z is normalized depth, and w is 1 / clip-space w.
-    // The reciprocal is required to perform perspective-correct interpolation in both backends.
-    glm::vec4 screenAndInvW{0.0f};
-    // xyz is the world-space position to interpolate for lighting.
-    glm::vec4 worldPosition{0.0f};
-    // xyz is the unnormalized world-space normal.
-    glm::vec4 normal{0.0f, 1.0f, 0.0f, 0.0f};
-    // xy stores UV; vec4 padding preserves packed texel alignment.
-    glm::vec4 uv{0.0f};
-};
-
-struct alignas(16) PreparedTriangle {
-    // Clockwise/back-facing triangles are removed before this stage.
-    PreparedVertex vertices[3];
-    // UV-derived world-space T basis for normal mapping.
-    glm::vec4 tangent{1.0f, 0.0f, 0.0f, 1.0f};
-    // UV-derived world-space B basis for normal mapping.
-    glm::vec4 bitangent{0.0f, 1.0f, 0.0f, 1.0f};
-};
-
-static_assert(sizeof(PreparedVertex) == 64);
-static_assert(sizeof(PreparedTriangle) == 224);
 
 struct FrameState {
     // Shared per-frame input. Both rasterizers use the same camera and light for comparison.

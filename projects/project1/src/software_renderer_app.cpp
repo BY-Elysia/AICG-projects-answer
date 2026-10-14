@@ -2,50 +2,59 @@
 
 #include <stdexcept>
 #include <format>
-#include <glad/glad.h>
 #include <common/event/event_dispatcher.h>
 #include <common/event/keyboard_event.h>
+#include <common/event/window_event.h>
 #include <glm/ext.hpp>
 #include <graphics/rhi.h>
-#include "shader_utils.h"
-
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-constexpr char const* ModelPath = "models/DamagedHelmet.gltf";
-constexpr char const* TransformPath = "shaders/transform.vert";
-constexpr char const* RasterVertexPath = "shaders/raster_input.vert";
-constexpr char const* RasterGeometryPath = "shaders/raster_bounds.geom";
-constexpr char const* ShadingPath = "shaders/raster_shading.frag";
-constexpr char const* DisplayVertexPath = "shaders/display.vert";
-constexpr char const* DisplayFragmentPath = "shaders/display.frag";
-constexpr float ModelRotationRadiansPerSecond = 0.5f;
+#include "shader_utils.h"
+
+constexpr char const* kModelPath = "models/DamagedHelmet.gltf";
+constexpr char const* kTransformPath = "shaders/transform.vert";
+constexpr char const* kRasterVertexPath = "shaders/raster_input.vert";
+constexpr char const* kRasterGeometryPath = "shaders/raster_bounds.geom";
+constexpr char const* kShadingPath = "shaders/raster_shading.frag";
+constexpr char const* kDisplayVertexPath = "shaders/display.vert";
+constexpr char const* kDisplayFragmentPath = "shaders/display.frag";
+constexpr float kModelRotateSpeed = 0.5f;
 
 SoftwareRendererApp::SoftwareRendererApp(Config const& config)
     : Application(config) {
-    m_scene = std::make_unique<RasterScene>(getAssetPath(ModelPath));
+    // scene
+    m_scene = std::make_unique<RasterScene>(getAssetPath(kModelPath));
 
-    m_camera = std::make_unique<PerspectiveCamera>(glm::radians(45.0f), m_window.aspectRatio(), 0.1f, 100.0f);
-    m_camera->transform.position = {0.0f, 0.0f, 5.0f};
+    // camera
+    m_camera.aspect = m_window.aspectRatio();
+    m_camera.transform.position = {0.0f, 0.0f, 5.0f};
 
-    // Configure a light above the camera-facing left/front quadrant. getFront() below supplies
-    // the direction in which its rays travel, matching FrameState's direction convention.
+    // light
     m_directionalLight.transform.rotation =
         glm::quatLookAt(glm::normalize(glm::vec3(0.5f, -0.5f, -0.70710678f)), Transform::getDefaultUp());
     m_directionalLight.intensity = 10.0f;
 
-    m_cpuRenderer = std::make_unique<CpuRenderer>();
-    m_gpuRenderer = std::make_unique<GpuRenderer>(getAssetPath(TransformPath),
-                                                  getAssetPath(RasterVertexPath),
-                                                  getAssetPath(RasterGeometryPath),
-                                                  getAssetPath(ShadingPath));
+    // cpu renderer
+    m_cpuRenderer = std::make_unique<CpuRenderer>(m_window.framebufferWidth(), m_window.framebufferHeight());
 
-    m_displayProgram = makeDisplayProgram(getAssetPath(DisplayVertexPath), getAssetPath(DisplayFragmentPath));
+    // gpu renderer
+    m_gpuRenderer = std::make_unique<GpuRenderer>(m_window.framebufferWidth(),
+                                                  m_window.framebufferHeight(),
+                                                  getAssetPath(kTransformPath),
+                                                  getAssetPath(kRasterVertexPath),
+                                                  getAssetPath(kRasterGeometryPath),
+                                                  getAssetPath(kShadingPath));
 
+    // display program
+    std::vector<gfx::ShaderModule> shaderModules;
+    shaderModules.push_back(loadShader(kDisplayVertexPath, gfx::ShaderModule::Stage::Vertex));
+    shaderModules.push_back(loadShader(kDisplayFragmentPath, gfx::ShaderModule::Stage::Fragment));
+    m_displayProgram = std::make_unique<gfx::GLProgram>(shaderModules);
+
+    // ui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
@@ -59,6 +68,8 @@ SoftwareRendererApp::SoftwareRendererApp(Config const& config)
         throw std::runtime_error("ImGui OpenGL initialization failed");
     }
     ImGui::GetIO().IniFilename = nullptr;
+
+    // reset clock
     resetClock();
 }
 
@@ -70,6 +81,18 @@ SoftwareRendererApp::~SoftwareRendererApp() {
 
 void SoftwareRendererApp::handleEvent(Event& event) {
     EventDispatcher dispatcher{event};
+    dispatcher.dispatch<WindowFramebufferResizeEvent>([this](WindowFramebufferResizeEvent& resizeEvent) {
+        if (resizeEvent.getWidth() == 0 || resizeEvent.getHeight() == 0) {
+            return false;
+        }
+        glm::ivec2 const extent{static_cast<int>(resizeEvent.getWidth()), static_cast<int>(resizeEvent.getHeight())};
+        m_cpuRenderer->resize(extent);
+        m_gpuRenderer->resize(extent);
+        m_camera.aspect = m_window.aspectRatio();
+
+        return false;
+    });
+
     dispatcher.dispatch<KeyPressEvent>([this](KeyPressEvent& key) {
         if (key.getKeyCode() == KeyCode::Escape) {
             close();
@@ -85,8 +108,8 @@ void SoftwareRendererApp::renderFrame() {
     if (width == 0 || height == 0) {
         return;
     }
-    m_camera->aspect = m_window.aspectRatio();
-    m_elapsedSeconds += getDeltaTime();
+
+    // show fps in the window title periodically
     m_titleSeconds += getDeltaTime();
     ++m_titleFrames;
     if (m_titleSeconds >= 1.0f) {
@@ -94,26 +117,26 @@ void SoftwareRendererApp::renderFrame() {
         m_titleSeconds = 0.0f;
         m_titleFrames = 0;
     }
-    FrameState frame;
-    frame.model =
-        glm::rotate(glm::mat4(1.0f), m_elapsedSeconds * ModelRotationRadiansPerSecond, glm::vec3(0.0f, 1.0f, 0.0f));
-    frame.view = m_camera->getViewMatrix();
-    frame.projection = m_camera->getProjectionMatrix();
-    frame.cameraPosition = m_camera->transform.position;
-    frame.directionalLight = m_directionalLight;
-    frame.extent = {width, height};
+
+    // render the scene
+    FrameState frame{
+        .model = glm::rotate(glm::mat4(1.0f), getTotalTime() * kModelRotateSpeed, glm::vec3(0.0f, 1.0f, 0.0f)),
+        .view = m_camera.getViewMatrix(),
+        .projection = m_camera.getProjectionMatrix(),
+        .cameraPosition = m_camera.transform.position,
+        .directionalLight = m_directionalLight,
+        .extent = {width, height},
+    };
 
     Renderer& renderer = m_renderBackend == RenderBackend::Cpu ? static_cast<Renderer&>(*m_cpuRenderer)
                                                                : static_cast<Renderer&>(*m_gpuRenderer);
     m_stats = renderer.render(m_scene->draws(), frame);
     auto const& output = renderer.outputTexture();
 
-    // Rasterization is already complete; this pass only tone-maps the chosen HDR texture.
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_BLEND);
-    glDisable(GL_CULL_FACE);
-    glDisable(GL_SCISSOR_TEST);
-    glViewport(0, 0, width, height);
+    // display the render result on the screen
+    gfx::RHI::enableDepthTest(false);
+    gfx::RHI::setViewport({0, 0, width, height});
+
     m_displayProgram->use();
     output.bind(m_displayProgram->getTextureBinding("uHdrColor"));
 

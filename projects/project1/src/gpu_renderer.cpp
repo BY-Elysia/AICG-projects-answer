@@ -10,24 +10,36 @@
 #include <common/timer.h>
 #include <graphics/rhi.h>
 
-GpuRenderer::GpuRenderer(std::filesystem::path const& transformShader,
+GpuRenderer::GpuRenderer(uint32_t width,
+                         uint32_t height,
+                         std::filesystem::path const& transformShader,
                          std::filesystem::path const& rasterVertexShader,
                          std::filesystem::path const& rasterGeometryShader,
-                         std::filesystem::path const& rasterFragmentShader) {
-    m_transformProgram = makeTransformFeedbackProgram(transformShader,
-                                                      gfx::GLProgram::TransformFeedbackBufferMode::Interleaved,
-                                                      {"tfClip", "tfWorldPosition", "tfNormal", "tfUv"});
-    std::vector<gfx::ShaderModule> modules;
-    modules.push_back(loadShader(rasterVertexShader, gfx::ShaderModule::Stage::Vertex));
-    modules.push_back(loadShader(rasterGeometryShader, gfx::ShaderModule::Stage::Geometry));
-    modules.push_back(loadShader(rasterFragmentShader, gfx::ShaderModule::Stage::Fragment));
-    m_rasterProgram = std::make_unique<gfx::GLProgram>(modules);
-    for (int i = 0; i < 5; ++i) {
-        std::string const flag = "uHasTexture[" + std::to_string(i) + "]";
-        std::string const sampler = "uTextures[" + std::to_string(i) + "]";
-        m_hasTextureLocations[i] = m_rasterProgram->getUniformVarLocation(flag);
-        m_rasterProgram->setUniform(sampler, i);
+                         std::filesystem::path const& rasterFragmentShader)
+    : Renderer(width, height) {
+    /* load transform feedback shaders */ {
+        std::vector<gfx::ShaderModule> shaderModules;
+        shaderModules.push_back(loadShader(transformShader, gfx::ShaderModule::Stage::Vertex));
+        m_transformProgram =
+            std::make_unique<gfx::GLProgram>(shaderModules,
+                                             gfx::GLProgram::TransformFeedbackBufferMode::Interleaved,
+                                             std::vector<std::string>{"tfClip", "tfWorldPosition", "tfNormal", "tfUv"});
     }
+
+    /* load transform feedback shaders */ {
+        std::vector<gfx::ShaderModule> modules;
+        modules.push_back(loadShader(rasterVertexShader, gfx::ShaderModule::Stage::Vertex));
+        modules.push_back(loadShader(rasterGeometryShader, gfx::ShaderModule::Stage::Geometry));
+        modules.push_back(loadShader(rasterFragmentShader, gfx::ShaderModule::Stage::Fragment));
+        m_rasterProgram = std::make_unique<gfx::GLProgram>(modules);
+        for (int i = 0; i < 5; ++i) {
+            std::string const flag = "uHasTexture[" + std::to_string(i) + "]";
+            std::string const sampler = "uTextures[" + std::to_string(i) + "]";
+            m_rasterProgram->setUniform(sampler, i);
+        }
+    }
+
+    resizeBackend();
 }
 
 void GpuRenderer::resizeBackend() {
@@ -85,7 +97,7 @@ void GpuRenderer::setMaterial(PbrMaterial const& material) {
             material.textures[i].gpuTexture->bind(i);
         }
 
-        m_rasterProgram->setUniform(m_hasTextureLocations[i], material.hasTexture[i]);
+        m_rasterProgram->setUniform("uHasTexture[" + std::to_string(i) + "]", material.hasTexture[i]);
     }
     m_rasterProgram->setUniform("uBaseColorFactor", material.baseColorFactor);
     m_rasterProgram->setUniform("uEmissiveFactor", material.emissiveFactor);
@@ -95,7 +107,6 @@ void GpuRenderer::setMaterial(PbrMaterial const& material) {
 }
 
 RendererStats GpuRenderer::render(std::vector<DrawItem> const& draws, FrameState const& frame) {
-    resize(frame.extent);
     Timer timer;
     timer.tick();
     uint32_t sourceTriangleCount = 0;

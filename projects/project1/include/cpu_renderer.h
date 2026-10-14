@@ -1,12 +1,13 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 
 #include "renderer.h"
 
 class CpuRenderer final : public Renderer {
 public:
-    CpuRenderer() = default;
+    CpuRenderer(uint32_t width, uint32_t height);
 
     RendererStats render(std::vector<DrawItem> const& draws, FrameState const& frame) override;
 

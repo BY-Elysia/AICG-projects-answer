@@ -92,8 +92,10 @@ void SoftwareRendererApp::validateBackends() {
                              std::vector<DrawItem> const& draws,
                              bool expectGeometry,
                              std::optional<uint32_t> expectedTriangles = std::nullopt) {
+        m_cpuRenderer->resize(frame.extent);
         auto const cpuStats = m_cpuRenderer->render(draws, frame);
         auto const cpu = readOutput(m_cpuRenderer->outputTexture());
+        m_gpuRenderer->resize(frame.extent);
         auto const gpuStats = m_gpuRenderer->render(draws, frame);
         auto const gpu = readOutput(m_gpuRenderer->outputTexture());
         uint32_t sourceTriangles = 0;
@@ -122,8 +124,8 @@ void SoftwareRendererApp::validateBackends() {
     };
 
     FrameState frame;
-    frame.view = m_camera->getViewMatrix();
-    frame.cameraPosition = m_camera->transform.position;
+    frame.view = m_camera.getViewMatrix();
+    frame.cameraPosition = m_camera.transform.position;
     frame.directionalLight = m_directionalLight;
     glm::ivec2 const extents[]{{640, 360}, {319, 181}};
     for (auto extent : extents) {
@@ -254,7 +256,7 @@ void SoftwareRendererApp::validateBackends() {
         try {
             FrameState invalid = frame;
             invalid.extent = {0, 97};
-            renderer->render({}, invalid);
+            renderer->resize(invalid.extent);
         }
         catch (std::invalid_argument const&) {
             rejected = true;
@@ -279,6 +281,14 @@ void SoftwareRendererApp::validateBackends() {
         }
     }
     // Also exercise presentation, UI and repeated switching at the real framebuffer extent.
+    WindowFramebufferResizeEvent restoreFramebufferSize{m_window.framebufferWidth(), m_window.framebufferHeight()};
+    handleEvent(restoreFramebufferSize);
+    if (m_cpuRenderer->outputTexture().getWidth() != m_window.framebufferWidth() ||
+        m_cpuRenderer->outputTexture().getHeight() != m_window.framebufferHeight() ||
+        m_gpuRenderer->outputTexture().getWidth() != m_window.framebufferWidth() ||
+        m_gpuRenderer->outputTexture().getHeight() != m_window.framebufferHeight()) {
+        throw std::runtime_error("Framebuffer resize did not update renderer outputs");
+    }
     for (int i = 0; i < 4; ++i) {
         m_renderBackend = i % 2 == 0 ? RenderBackend::Cpu : RenderBackend::Gpu;
         m_directionalLight.color = i % 2 == 0 ? glm::vec3{1} : glm::vec3{0.5f, 0.8f, 1};

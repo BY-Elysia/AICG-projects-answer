@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <vector>
@@ -15,7 +16,9 @@
 
 class GpuRenderer final : public Renderer {
 public:
-    GpuRenderer(std::filesystem::path const& transformShader,
+    GpuRenderer(uint32_t width,
+                uint32_t height,
+                std::filesystem::path const& transformShader,
                 std::filesystem::path const& rasterVertexShader,
                 std::filesystem::path const& rasterGeometryShader,
                 std::filesystem::path const& rasterFragmentShader);
@@ -30,7 +33,6 @@ private:
     std::unique_ptr<gfx::Buffer> m_transformedBuffer;
     gfx::TransformFeedback m_transformFeedback;
     gfx::VertexArray m_feedbackVao;
-    std::array<int, 5> m_hasTextureLocations{};
     std::unique_ptr<gfx::Framebuffer> m_framebuffer;
     std::unique_ptr<gfx::Renderbuffer> m_depthBuffer;
     std::array<gfx::Timer, 3> m_timeQueries;

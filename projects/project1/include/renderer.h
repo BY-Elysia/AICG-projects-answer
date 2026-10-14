@@ -1,14 +1,19 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
 #include "raster_types.h"
 
-// Owns the complete geometry-to-HDR pipeline. Scene supplies drawable meshes and materials.
+// Common render interface and HDR output for the CPU and GPU pipelines.
 class Renderer {
 public:
+    Renderer(uint32_t width, uint32_t height);
+
     virtual ~Renderer() = default;
+
+    void resize(glm::ivec2 const& extent);
 
     // Process all draw items together so depth and material ownership span the whole scene.
     virtual RendererStats render(std::vector<DrawItem> const& draws, FrameState const& frame) = 0;
@@ -24,12 +29,4 @@ protected:
     std::unique_ptr<gfx::Texture2D> m_outputTexture;
 
     virtual void resizeBackend() = 0;
-
-    // CPU geometry helpers; prepared triangles never cross the backend entry point.
-    void resize(glm::ivec2 const& extent);
-    static std::vector<PreparedTriangle>
-    prepareTriangles(Mesh const& mesh, glm::mat4 const& transform, FrameState const& frame);
-    static std::vector<PreparedTriangle> prepareTriangles(std::vector<TransformedVertex> const& vertices,
-                                                          std::vector<uint32_t> const& indices,
-                                                          glm::ivec2 extent);
 };
