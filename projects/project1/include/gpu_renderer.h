@@ -12,7 +12,6 @@
 #include <graphics/vertex_array.h>
 #include "renderer.h"
 
-// OpenGL 4.1: indexed vertex transform, on-GPU feedback, then shader rasterization.
 class GpuRenderer final : public Renderer {
 public:
     GpuRenderer(std::string const& transformShader,
