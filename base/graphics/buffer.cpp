@@ -228,7 +228,7 @@ void Buffer::bindAsAtomicCounter(uint32_t binding) const {
 }
 
 void Buffer::bindAsTransformFeedback(uint32_t binding) const {
-    glBindBufferBase(GL_TRANSFORM_FEEDBACK, binding, m_handle);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, binding, m_handle);
 }
 
 void Buffer::bindAsUniform(uint32_t binding) const {
@@ -244,7 +244,7 @@ void Buffer::unbindAsAtomicCounter(uint32_t binding) {
 }
 
 void Buffer::unbindAsTransformFeedback(uint32_t binding) {
-    glBindBufferBase(GL_TRANSFORM_FEEDBACK, binding, 0);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, binding, 0);
 }
 
 void Buffer::unbindAsUniform(uint32_t binding) {
@@ -260,7 +260,7 @@ void Buffer::bindRangeAsAtomicCounter(uint32_t binding, intptr_t offset, size_t 
 }
 
 void Buffer::bindRangeAsTransformFeedback(uint32_t binding, intptr_t offset, size_t size) const {
-    glBindBufferRange(GL_TRANSFORM_FEEDBACK, binding, m_handle, GLintptr(offset), GLsizeiptr(size));
+    glBindBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, binding, m_handle, GLintptr(offset), GLsizeiptr(size));
 }
 
 void Buffer::bindRangeAsUniform(uint32_t binding, intptr_t offset, size_t size) const {

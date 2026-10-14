@@ -3,6 +3,7 @@
 
 #include <cstring>
 #include <filesystem>
+#include <functional>
 #include <stdexcept>
 
 #include <glm/ext.hpp>
@@ -113,7 +114,7 @@ void loadTexture(tg3_model const& model, int textureIndex, UnifiedTexture2D& tar
         byteCount = static_cast<size_t>(image.image.count);
     }
     else {
-        throw std::runtime_error("rasterizer only supports embedded DamagedHelmet textures");
+        throw std::runtime_error("rasterizer only supports embedded material textures");
     }
 
     int width = 0;
@@ -129,13 +130,103 @@ void loadTexture(tg3_model const& model, int textureIndex, UnifiedTexture2D& tar
                                                        CpuTexture2D::Format::RedGreenBlueAlpha,
                                                        CpuTexture2D::DataType::UnsignedByte,
                                                        decoded);
-    // DamagedHelmet's empty glTF sampler uses the specification's default LINEAR minification
-    // filter, so its source asset does not request a generated mip chain.
+    // Both renderers sample level zero with linear filtering and repeat addressing.
     target.cpuTexture->setMinFilter(CpuTexture2D::Filter::Linear);
     target.cpuTexture->setMagFilter(CpuTexture2D::Filter::Linear);
     target.cpuTexture->setAddressModeS(CpuTexture2D::AddressMode::Repeat);
     target.cpuTexture->setAddressModeT(CpuTexture2D::AddressMode::Repeat);
     stbi_image_free(decoded);
+}
+
+Mesh loadPrimitive(tg3_model const& model, tg3_primitive const& primitive) {
+    if (primitive.mode != -1 && primitive.mode != 4) {
+        throw std::runtime_error("rasterizer only supports triangle primitives");
+    }
+    size_t vertexCount = 0;
+    int positionStride = 0;
+    float const* positions = attributeData<float>(model, primitive, "POSITION", vertexCount, positionStride);
+    size_t normalCount = 0;
+    int normalStride = 0;
+    float const* normals = attributeData<float>(model, primitive, "NORMAL", normalCount, normalStride);
+    size_t uvCount = 0;
+    int uvStride = 0;
+    float const* uvs = attributeData<float>(model, primitive, "TEXCOORD_0", uvCount, uvStride);
+    if (!positions || !normals || !uvs || normalCount != vertexCount || uvCount != vertexCount) {
+        throw std::runtime_error("triangle primitive needs POSITION, NORMAL and TEXCOORD_0");
+    }
+
+    Mesh mesh;
+    mesh.vertices.reserve(vertexCount);
+    for (size_t i = 0; i < vertexCount; ++i) {
+        auto const* p =
+            reinterpret_cast<float const*>(reinterpret_cast<uint8_t const*>(positions) + i * positionStride);
+        auto const* n = reinterpret_cast<float const*>(reinterpret_cast<uint8_t const*>(normals) + i * normalStride);
+        auto const* uv = reinterpret_cast<float const*>(reinterpret_cast<uint8_t const*>(uvs) + i * uvStride);
+        mesh.vertices.push_back({glm::make_vec3(p), glm::make_vec3(n), glm::make_vec2(uv)});
+    }
+    if (primitive.indices < 0) {
+        mesh.indices.reserve(vertexCount);
+        for (size_t i = 0; i < vertexCount; ++i) {
+            mesh.indices.push_back(static_cast<uint32_t>(i));
+        }
+        return mesh;
+    }
+    tg3_accessor const& accessor = model.accessors[primitive.indices];
+    tg3_buffer_view const& view = model.buffer_views[accessor.buffer_view];
+    uint8_t const* indexData = model.buffers[view.buffer].data.data + view.byte_offset + accessor.byte_offset;
+    int const stride = tg3_accessor_byte_stride(&accessor, &view);
+    mesh.indices.reserve(static_cast<size_t>(accessor.count));
+    for (uint64_t i = 0; i < accessor.count; ++i) {
+        uint8_t const* value = indexData + i * stride;
+        uint32_t index = 0;
+        switch (accessor.component_type) {
+        case TG3_COMPONENT_TYPE_UNSIGNED_SHORT: {
+            uint16_t narrow;
+            std::memcpy(&narrow, value, sizeof(narrow));
+            index = narrow;
+            break;
+        }
+        case TG3_COMPONENT_TYPE_UNSIGNED_INT:
+            std::memcpy(&index, value, sizeof(index));
+            break;
+        case TG3_COMPONENT_TYPE_UNSIGNED_BYTE:
+            index = *value;
+            break;
+        default:
+            throw std::runtime_error("unsupported index type");
+        }
+        mesh.indices.push_back(index);
+    }
+    return mesh;
+}
+
+PbrMaterial loadMaterial(tg3_model const& model, tg3_material const& sourceMaterial) {
+    PbrMaterial material;
+    tg3_pbr_metallic_roughness const& pbr = sourceMaterial.pbr_metallic_roughness;
+    material.baseColorFactor = glm::vec4(static_cast<float>(pbr.base_color_factor[0]),
+                                         static_cast<float>(pbr.base_color_factor[1]),
+                                         static_cast<float>(pbr.base_color_factor[2]),
+                                         static_cast<float>(pbr.base_color_factor[3]));
+    material.emissiveFactor = glm::vec3(static_cast<float>(sourceMaterial.emissive_factor[0]),
+                                        static_cast<float>(sourceMaterial.emissive_factor[1]),
+                                        static_cast<float>(sourceMaterial.emissive_factor[2]));
+    material.metallicFactor = static_cast<float>(pbr.metallic_factor);
+    material.roughnessFactor = static_cast<float>(pbr.roughness_factor);
+    material.occlusionStrength = static_cast<float>(sourceMaterial.occlusion_texture.strength);
+    int const indices[] = {
+        pbr.base_color_texture.index,
+        pbr.metallic_roughness_texture.index,
+        sourceMaterial.normal_texture.index,
+        sourceMaterial.occlusion_texture.index,
+        sourceMaterial.emissive_texture.index
+    };
+    for (int i = 0; i < 5; ++i) {
+        material.hasTexture[i] = indices[i] >= 0;
+        if (material.hasTexture[i]) {
+            loadTexture(model, indices[i], material.textures[i]);
+        }
+    }
+    return material;
 }
 
 } // namespace
@@ -168,109 +259,90 @@ void RasterScene::load(std::string const& filePath) {
         throw std::runtime_error("model has no scene");
     }
 
-    tg3_scene const& scene = model.scenes[model.default_scene >= 0 ? model.default_scene : 0];
-    if (scene.nodes_count != 1 || model.nodes[scene.nodes[0]].mesh < 0) {
-        throw std::runtime_error("rasterizer expects DamagedHelmet's single mesh node");
+    m_materials.reserve(model.materials_count + 1);
+    for (uint32_t i = 0; i < model.materials_count; ++i) {
+        m_materials.push_back(loadMaterial(model, model.materials[i]));
     }
+    // glTF permits primitives without a material; use its default metallic-roughness values.
+    uint32_t const defaultMaterial = static_cast<uint32_t>(m_materials.size());
+    m_materials.emplace_back();
 
-    tg3_node const& node = model.nodes[scene.nodes[0]];
-    tg3_mesh const& mesh = model.meshes[node.mesh];
-    if (mesh.primitives_count != 1) {
-        throw std::runtime_error("rasterizer expects one primitive");
-    }
-
-    tg3_primitive const& primitive = mesh.primitives[0];
-    if (primitive.mode != -1 && primitive.mode != 4) {
-        throw std::runtime_error("rasterizer only supports triangles");
-    }
-
-    size_t vertexCount = 0;
-    int positionStride = 0;
-    float const* positions = attributeData<float>(model, primitive, "POSITION", vertexCount, positionStride);
-
-    size_t normalCount = 0;
-    int normalStride = 0;
-    float const* normals = attributeData<float>(model, primitive, "NORMAL", normalCount, normalStride);
-
-    size_t uvCount = 0;
-    int uvStride = 0;
-    float const* uvs = attributeData<float>(model, primitive, "TEXCOORD_0", uvCount, uvStride);
-
-    if (!positions || !normals || !uvs || normalCount != vertexCount || uvCount != vertexCount) {
-        throw std::runtime_error("DamagedHelmet must contain POSITION, NORMAL and TEXCOORD_0");
-    }
-
-    m_mesh.transform = nodeTransform(node);
-    m_mesh.vertices.reserve(vertexCount);
-    for (size_t i = 0; i < vertexCount; ++i) {
-        auto const* p =
-            reinterpret_cast<float const*>(reinterpret_cast<uint8_t const*>(positions) + i * positionStride);
-        auto const* n = reinterpret_cast<float const*>(reinterpret_cast<uint8_t const*>(normals) + i * normalStride);
-        auto const* uv = reinterpret_cast<float const*>(reinterpret_cast<uint8_t const*>(uvs) + i * uvStride);
-        m_mesh.vertices.push_back({glm::make_vec3(p), glm::make_vec3(n), glm::make_vec2(uv)});
-    }
-
-    tg3_accessor const& accessor = model.accessors[primitive.indices];
-    tg3_buffer_view const& view = model.buffer_views[accessor.buffer_view];
-    uint8_t const* indexData = model.buffers[view.buffer].data.data + view.byte_offset + accessor.byte_offset;
-    m_mesh.indices.reserve(static_cast<size_t>(accessor.count));
-    for (uint64_t i = 0; i < accessor.count; ++i) {
-        switch (accessor.component_type) {
-        case TG3_COMPONENT_TYPE_UNSIGNED_SHORT:
-            m_mesh.indices.push_back(reinterpret_cast<uint16_t const*>(indexData)[i]);
-            break;
-        case TG3_COMPONENT_TYPE_UNSIGNED_INT:
-            m_mesh.indices.push_back(reinterpret_cast<uint32_t const*>(indexData)[i]);
-            break;
-        case TG3_COMPONENT_TYPE_UNSIGNED_BYTE:
-            m_mesh.indices.push_back(indexData[i]);
-            break;
-        default:
-            throw std::runtime_error("unsupported index type");
-        }
-    }
-
-    if (primitive.material < 0) {
-        throw std::runtime_error("DamagedHelmet needs a PBR material");
-    }
-    tg3_material const& sourceMaterial = model.materials[primitive.material];
-    tg3_pbr_metallic_roughness const& pbr = sourceMaterial.pbr_metallic_roughness;
-    m_material.baseColorFactor = glm::vec4(static_cast<float>(pbr.base_color_factor[0]),
-                                           static_cast<float>(pbr.base_color_factor[1]),
-                                           static_cast<float>(pbr.base_color_factor[2]),
-                                           static_cast<float>(pbr.base_color_factor[3]));
-    m_material.emissiveFactor = glm::vec3(static_cast<float>(sourceMaterial.emissive_factor[0]),
-                                          static_cast<float>(sourceMaterial.emissive_factor[1]),
-                                          static_cast<float>(sourceMaterial.emissive_factor[2]));
-    m_material.metallicFactor = static_cast<float>(pbr.metallic_factor);
-    m_material.roughnessFactor = static_cast<float>(pbr.roughness_factor);
-    m_material.occlusionStrength = static_cast<float>(sourceMaterial.occlusion_texture.strength);
-    int const indices[] = {
-        pbr.base_color_texture.index,
-        pbr.metallic_roughness_texture.index,
-        sourceMaterial.normal_texture.index,
-        sourceMaterial.occlusion_texture.index,
-        sourceMaterial.emissive_texture.index
+    struct PrimitiveRef {
+        size_t mesh;
+        size_t material;
     };
-    for (int i = 0; i < 5; ++i) {
-        m_material.hasTexture[i] = indices[i] >= 0;
-        if (m_material.hasTexture[i]) {
-            loadTexture(model, indices[i], m_material.textures[i]);
+    std::vector<std::vector<PrimitiveRef>> primitives(model.meshes_count);
+    for (uint32_t meshIndex = 0; meshIndex < model.meshes_count; ++meshIndex) {
+        tg3_mesh const& source = model.meshes[meshIndex];
+        for (uint32_t primitiveIndex = 0; primitiveIndex < source.primitives_count; ++primitiveIndex) {
+            tg3_primitive const& primitive = source.primitives[primitiveIndex];
+            if (primitive.material >= 0 && static_cast<uint32_t>(primitive.material) >= model.materials_count) {
+                throw std::runtime_error("primitive references a missing material");
+            }
+            size_t const materialIndex = primitive.material < 0 ? defaultMaterial : primitive.material;
+            primitives[meshIndex].push_back({m_meshes.size(), materialIndex});
+            m_meshes.push_back(loadPrimitive(model, primitive));
         }
+    }
+
+    std::vector<bool> ancestors(model.nodes_count);
+    std::function<Node(int32_t)> loadNode = [&](int32_t nodeIndex) -> Node {
+        if (nodeIndex < 0 || static_cast<uint32_t>(nodeIndex) >= model.nodes_count) {
+            throw std::runtime_error("scene references a missing node");
+        }
+        if (ancestors[nodeIndex]) {
+            throw std::runtime_error("scene node hierarchy contains a cycle");
+        }
+        ancestors[nodeIndex] = true;
+        tg3_node const& source = model.nodes[nodeIndex];
+        if (source.mesh >= 0 && static_cast<uint32_t>(source.mesh) >= model.meshes_count) {
+            throw std::runtime_error("node references a missing mesh");
+        }
+        Node node;
+        node.localTransform = nodeTransform(source);
+        node.mesh = source.mesh;
+        node.children.reserve(source.children_count);
+        for (uint32_t i = 0; i < source.children_count; ++i) {
+            node.children.push_back(loadNode(source.children[i]));
+        }
+        ancestors[nodeIndex] = false;
+        return node;
+    };
+
+    tg3_scene const& scene = model.scenes[model.default_scene >= 0 ? model.default_scene : 0];
+    m_roots.reserve(scene.nodes_count);
+    for (uint32_t i = 0; i < scene.nodes_count; ++i) {
+        m_roots.push_back(loadNode(scene.nodes[i]));
+    }
+    std::function<void(Node const&, glm::mat4 const&)> submitNode = [&](Node const& node, glm::mat4 const& parent) {
+        glm::mat4 const world = parent * node.localTransform;
+        if (node.mesh >= 0) {
+            for (PrimitiveRef const& primitive : primitives[node.mesh]) {
+                m_draws.push_back({&m_meshes[primitive.mesh], &m_materials[primitive.material], world});
+            }
+        }
+        for (Node const& child : node.children) {
+            submitNode(child, world);
+        }
+    };
+    for (Node const& root : m_roots) {
+        submitNode(root, glm::mat4{1.0f});
     }
 }
 
 void RasterScene::uploadTextures() {
-    for (int i = 0; i < 5; ++i) {
-        UnifiedTexture2D& texture = m_material.textures[i];
-        if (!m_material.hasTexture[i]) {
-            continue;
+    for (PbrMaterial& material : m_materials) {
+        for (int i = 0; i < 5; ++i) {
+            UnifiedTexture2D& texture = material.textures[i];
+            if (!material.hasTexture[i]) {
+                continue;
+            }
+            texture.gpuTexture = makeRasterTexture({texture.cpuTexture->width(), texture.cpuTexture->height()},
+                                                   gfx::Texture::Format::RGBA8,
+                                                   gfx::Texture::ExternalFormat::RGBA,
+                                                   gfx::Texture::PixelType::UByte,
+                                                   texture.cpuTexture->pixels(),
+                                                   true);
         }
-        texture.gpuTexture = makeRasterTexture({texture.cpuTexture->width(), texture.cpuTexture->height()},
-                                               gfx::Texture::Format::RGBA8,
-                                               gfx::Texture::ExternalFormat::RGBA,
-                                               gfx::Texture::PixelType::UByte,
-                                               texture.cpuTexture->pixels(),
-                                               true);
     }
 }

@@ -9,50 +9,44 @@
 #include <glm/gtx/exterior_product.hpp>
 
 namespace {
-struct ClipVertex {
-    glm::vec4 clip;
-    glm::vec3 worldPosition;
-    glm::vec3 normal;
-    glm::vec2 uv;
-};
-
 // Transform every input vertex once, then assemble indexed triangles from its varyings.
-std::vector<ClipVertex> transformVertices(Mesh const& mesh, FrameState const& frame) {
-    std::vector<ClipVertex> vertices;
+std::vector<TransformedVertex>
+transformVertices(Mesh const& mesh, glm::mat4 const& transform, FrameState const& frame) {
+    std::vector<TransformedVertex> vertices;
     vertices.reserve(mesh.vertices.size());
-    glm::mat3 const nodeNormalTransform = glm::transpose(glm::inverse(glm::mat3(mesh.transform)));
+    glm::mat3 const nodeNormalTransform = glm::transpose(glm::inverse(glm::mat3(transform)));
     glm::mat3 const normalTransform = glm::transpose(glm::inverse(glm::mat3(frame.model)));
     glm::mat4 const modelViewProjection = frame.projection * frame.view * frame.model;
     for (auto const& vertex : mesh.vertices) {
         // Preserve the asset-node then instance-transform order for positions and normals.
-        glm::vec3 const position = glm::vec3(mesh.transform * glm::vec4(vertex.position, 1.0f));
+        glm::vec3 const position = glm::vec3(transform * glm::vec4(vertex.position, 1.0f));
         glm::vec3 const normal = glm::normalize(nodeNormalTransform * vertex.normal);
         vertices.push_back(
             {modelViewProjection * glm::vec4(position, 1.0f),
-             glm::vec3(frame.model * glm::vec4(position, 1.0f)),
-             glm::normalize(normalTransform * normal),
-             vertex.uv});
+             glm::vec4(glm::vec3(frame.model * glm::vec4(position, 1.0f)), 1.0f),
+             glm::vec4(glm::normalize(normalTransform * normal), 0.0f),
+             glm::vec4(vertex.uv, 0.0f, 0.0f)});
     }
     return vertices;
 }
 
-ClipVertex interpolate(ClipVertex const& a, ClipVertex const& b, float t) {
+TransformedVertex interpolate(TransformedVertex const& a, TransformedVertex const& b, float t) {
     return {
         glm::mix(a.clip, b.clip, t),
         glm::mix(a.worldPosition, b.worldPosition, t),
-        glm::normalize(glm::mix(a.normal, b.normal, t)),
+        glm::vec4(glm::normalize(glm::mix(glm::vec3(a.normal), glm::vec3(b.normal), t)), 0.0f),
         glm::mix(a.uv, b.uv, t)
     };
 }
 
-template <typename Distance> void clipAgainst(std::vector<ClipVertex>& polygon, Distance distance) {
-    std::vector<ClipVertex> result;
+template <typename Distance> void clipAgainst(std::vector<TransformedVertex>& polygon, Distance distance) {
+    std::vector<TransformedVertex> result;
     if (polygon.empty()) {
         return;
     }
-    ClipVertex previous = polygon.back();
+    TransformedVertex previous = polygon.back();
     float previousDistance = distance(previous);
-    for (ClipVertex const& current : polygon) {
+    for (TransformedVertex const& current : polygon) {
         float const currentDistance = distance(current);
         bool const currentInside = currentDistance >= 0.0f;
         bool const previousInside = previousDistance >= 0.0f;
@@ -82,47 +76,54 @@ void Renderer::resize(glm::ivec2 const& extent) {
     resizeBackend();
 }
 
-std::vector<PreparedTriangle> Renderer::prepareTriangles(Mesh const& mesh, FrameState const& frame) {
+std::vector<PreparedTriangle>
+Renderer::prepareTriangles(Mesh const& mesh, glm::mat4 const& transform, FrameState const& frame) {
+    auto const vertices = transformVertices(mesh, transform, frame);
+    return prepareTriangles(vertices, mesh.indices, frame.extent);
+}
+
+std::vector<PreparedTriangle> Renderer::prepareTriangles(std::span<TransformedVertex const> vertices,
+                                                         std::span<uint32_t const> indices,
+                                                         glm::ivec2 extent) {
     std::vector<PreparedTriangle> result;
-    result.reserve(mesh.indices.size() / 3);
-    if (mesh.indices.size() % 3 != 0) {
+    result.reserve(indices.size() / 3);
+    if (indices.size() % 3 != 0) {
         throw std::invalid_argument("Mesh indices must describe complete triangles");
     }
-    auto const vertices = transformVertices(mesh, frame);
-    for (size_t index = 0; index + 2 < mesh.indices.size(); index += 3) {
-        std::vector<ClipVertex> polygon;
+    for (size_t index = 0; index + 2 < indices.size(); index += 3) {
+        std::vector<TransformedVertex> polygon;
         polygon.reserve(8);
         for (int corner = 0; corner < 3; ++corner) {
-            auto const vertexIndex = mesh.indices[index + corner];
+            auto const vertexIndex = indices[index + corner];
             if (vertexIndex >= vertices.size()) {
                 throw std::invalid_argument("Mesh index references a missing vertex");
             }
             polygon.push_back(vertices[vertexIndex]);
         }
-        clipAgainst(polygon, [](ClipVertex const& v) { return v.clip.x + v.clip.w; });
-        clipAgainst(polygon, [](ClipVertex const& v) { return v.clip.w - v.clip.x; });
-        clipAgainst(polygon, [](ClipVertex const& v) { return v.clip.y + v.clip.w; });
-        clipAgainst(polygon, [](ClipVertex const& v) { return v.clip.w - v.clip.y; });
-        clipAgainst(polygon, [](ClipVertex const& v) { return v.clip.z + v.clip.w; });
-        clipAgainst(polygon, [](ClipVertex const& v) { return v.clip.w - v.clip.z; });
+        clipAgainst(polygon, [](TransformedVertex const& v) { return v.clip.x + v.clip.w; });
+        clipAgainst(polygon, [](TransformedVertex const& v) { return v.clip.w - v.clip.x; });
+        clipAgainst(polygon, [](TransformedVertex const& v) { return v.clip.y + v.clip.w; });
+        clipAgainst(polygon, [](TransformedVertex const& v) { return v.clip.w - v.clip.y; });
+        clipAgainst(polygon, [](TransformedVertex const& v) { return v.clip.z + v.clip.w; });
+        clipAgainst(polygon, [](TransformedVertex const& v) { return v.clip.w - v.clip.z; });
         for (size_t triangle = 1; triangle + 1 < polygon.size(); ++triangle) {
-            ClipVertex const clipped[] = {polygon[0], polygon[triangle], polygon[triangle + 1]};
+            TransformedVertex const clipped[] = {polygon[0], polygon[triangle], polygon[triangle + 1]};
             PreparedTriangle output{};
             for (int corner = 0; corner < 3; ++corner) {
                 float const reciprocalW = 1.0f / clipped[corner].clip.w;
                 glm::vec3 const ndc = glm::vec3(clipped[corner].clip) * reciprocalW;
-                output.vertices[corner].screenAndInvW = glm::vec4((ndc.x * 0.5f + 0.5f) * frame.extent.x,
-                                                                  (ndc.y * 0.5f + 0.5f) * frame.extent.y,
+                output.vertices[corner].screenAndInvW = glm::vec4((ndc.x * 0.5f + 0.5f) * extent.x,
+                                                                  (ndc.y * 0.5f + 0.5f) * extent.y,
                                                                   ndc.z * 0.5f + 0.5f,
                                                                   reciprocalW);
-                output.vertices[corner].worldPosition = glm::vec4(clipped[corner].worldPosition, 1.0f);
-                output.vertices[corner].normal = glm::vec4(clipped[corner].normal, 0.0f);
-                output.vertices[corner].uv = glm::vec4(clipped[corner].uv, 0.0f, 0.0f);
+                output.vertices[corner].worldPosition = clipped[corner].worldPosition;
+                output.vertices[corner].normal = clipped[corner].normal;
+                output.vertices[corner].uv = clipped[corner].uv;
             }
-            glm::vec3 const edge1 = clipped[1].worldPosition - clipped[0].worldPosition;
-            glm::vec3 const edge2 = clipped[2].worldPosition - clipped[0].worldPosition;
-            glm::vec2 const deltaUv1 = clipped[1].uv - clipped[0].uv;
-            glm::vec2 const deltaUv2 = clipped[2].uv - clipped[0].uv;
+            glm::vec3 const edge1 = glm::vec3(clipped[1].worldPosition - clipped[0].worldPosition);
+            glm::vec3 const edge2 = glm::vec3(clipped[2].worldPosition - clipped[0].worldPosition);
+            glm::vec2 const deltaUv1 = glm::vec2(clipped[1].uv - clipped[0].uv);
+            glm::vec2 const deltaUv2 = glm::vec2(clipped[2].uv - clipped[0].uv);
             float const determinant = deltaUv1.x * deltaUv2.y - deltaUv1.y * deltaUv2.x;
             if (std::abs(determinant) > 1e-8f) {
                 output.tangent =

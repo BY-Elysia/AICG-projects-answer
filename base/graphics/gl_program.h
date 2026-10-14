@@ -179,7 +179,9 @@ public:
     using AtomicCounterInfoMap = std::map<std::string, AtomicCounterInfo, std::less<>>;
 
 public:
-    GLProgram(std::vector<ShaderModule> const& shaderModules);
+    // Optional interleaved transform-feedback outputs are configured before linking.
+    GLProgram(std::vector<ShaderModule> const& shaderModules,
+              std::vector<std::string> const& transformFeedbackVaryings = {});
 
     GLProgram(std::vector<ShaderModule> const& shaderModules,
               std::map<ShaderModule::Stage, UniformVarInfoMap> const& uniformVarInfos,

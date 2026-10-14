@@ -2,6 +2,7 @@
 #include "cpu_renderer.h"
 
 #include <limits>
+#include <stdexcept>
 #include <common/timer.h>
 #include <glm/gtx/exterior_product.hpp>
 
@@ -15,11 +16,23 @@ void CpuRenderer::resizeBackend() {
     m_color.resize(pixels);
 }
 
-RendererStats CpuRenderer::render(Mesh const& mesh, PbrMaterial const& material, FrameState const& frame) {
+RendererStats CpuRenderer::render(std::span<DrawItem const> draws, FrameState const& frame) {
     resize(frame.extent);
     Timer geometryTimer;
     geometryTimer.tick();
-    auto const triangles = prepareTriangles(mesh, frame);
+    std::vector<PreparedTriangle> triangles;
+    std::vector<PbrMaterial const*> triangleMaterials;
+    for (DrawItem const& draw : draws) {
+        if (!draw.mesh || !draw.material) {
+            throw std::invalid_argument("Draw item needs a mesh and material");
+        }
+        auto prepared = prepareTriangles(*draw.mesh, draw.transform, frame);
+        if (prepared.size() > std::numeric_limits<uint32_t>::max() - triangles.size()) {
+            throw std::runtime_error("Too many rasterizer triangles");
+        }
+        triangleMaterials.insert(triangleMaterials.end(), prepared.size(), draw.material);
+        triangles.insert(triangles.end(), prepared.begin(), prepared.end());
+    }
     float const preparationMs = static_cast<float>(geometryTimer.tock() * 1000.0);
 
     Timer timer;
@@ -78,7 +91,7 @@ RendererStats CpuRenderer::render(Mesh const& mesh, PbrMaterial const& material,
                     uv += weights[corner] * glm::vec2(triangle.vertices[corner].uv);
                 }
                 // Shade the visible sample with material textures and direct-light PBR.
-                m_color[pixelIndex] = glm::vec4(pbr::shade(material,
+                m_color[pixelIndex] = glm::vec4(pbr::shade(*triangleMaterials[triangleIndex],
                                                            frame,
                                                            position,
                                                            normal,

@@ -86,15 +86,14 @@ Mesh testMesh(std::vector<TestTriangle> const& triangles) {
 } // namespace
 
 void SoftwareRendererApp::validateBackends() {
-    auto check = [this](std::string const& label,
-                        FrameState const& frame,
-                        Mesh const& mesh,
-                        PbrMaterial const& material,
-                        bool expectGeometry,
-                        std::optional<uint32_t> expectedTriangles = std::nullopt) {
-        auto const cpuStats = m_cpuRenderer->render(mesh, material, frame);
+    auto checkDraws = [this](std::string const& label,
+                             FrameState const& frame,
+                             std::span<DrawItem const> draws,
+                             bool expectGeometry,
+                             std::optional<uint32_t> expectedTriangles = std::nullopt) {
+        auto const cpuStats = m_cpuRenderer->render(draws, frame);
         auto const cpu = readOutput(m_cpuRenderer->outputTexture());
-        auto const gpuStats = m_gpuRenderer->render(mesh, material, frame);
+        auto const gpuStats = m_gpuRenderer->render(draws, frame);
         auto const gpu = readOutput(m_gpuRenderer->outputTexture());
         if (cpuStats.triangleCount != gpuStats.triangleCount ||
             (expectedTriangles && cpuStats.triangleCount != *expectedTriangles)) {
@@ -105,6 +104,16 @@ void SoftwareRendererApp::validateBackends() {
             throw std::runtime_error(label + ": OpenGL error");
         }
         return cpu;
+    };
+    auto check = [&](std::string const& label,
+                     FrameState const& frame,
+                     Mesh const& mesh,
+                     PbrMaterial const& material,
+                     bool expectGeometry,
+                     std::optional<uint32_t> expectedTriangles = std::nullopt,
+                     glm::mat4 const& transform = glm::mat4{1}) {
+        DrawItem const draw{&mesh, &material, transform};
+        return checkDraws(label, frame, std::span{&draw, 1}, expectGeometry, expectedTriangles);
     };
 
     FrameState frame;
@@ -117,16 +126,15 @@ void SoftwareRendererApp::validateBackends() {
         frame.projection = glm::perspective(glm::radians(45.0f), float(extent.x) / extent.y, 0.1f, 100.0f);
         for (float angle : {0.0f, 0.7f}) {
             frame.model = glm::rotate(glm::mat4{1}, angle, glm::vec3{0, 1, 0});
-            check("helmet " + std::to_string(extent.x) + " angle " + std::to_string(angle),
-                  frame,
-                  m_scene->mesh(),
-                  m_scene->material(),
-                  true);
+            checkDraws("helmet " + std::to_string(extent.x) + " angle " + std::to_string(angle),
+                       frame,
+                       m_scene->draws(),
+                       true);
         }
     }
     // Exercise shared clipping with a model intersecting the side planes.
     frame.model = glm::translate(glm::mat4{1}, glm::vec3{1.7f, 0, 0});
-    check("clipped helmet", frame, m_scene->mesh(), m_scene->material(), true);
+    checkDraws("clipped helmet", frame, m_scene->draws(), true);
 
     frame.extent = {127, 97};
     frame.model = glm::mat4{1};
@@ -136,6 +144,29 @@ void SoftwareRendererApp::validateBackends() {
     PbrMaterial simple;
     simple.metallicFactor = 0;
     simple.roughnessFactor = 0.8f;
+    RasterScene hierarchy(getAssetPath("models/HierarchyTest.gltf").string());
+    auto const hierarchyDraws = hierarchy.draws();
+    if (hierarchyDraws.size() != 4 || hierarchyDraws[0].mesh == hierarchyDraws[1].mesh ||
+        hierarchyDraws[2].mesh != hierarchyDraws[3].mesh || hierarchyDraws[0].material == hierarchyDraws[1].material ||
+        hierarchyDraws[1].material == hierarchyDraws[2].material ||
+        glm::vec3(hierarchyDraws[0].transform[3]) != glm::vec3(5, 0, 0) ||
+        glm::vec3(hierarchyDraws[1].transform[3]) != glm::vec3(5, 0, 0) ||
+        glm::vec3(hierarchyDraws[2].transform[3]) != glm::vec3(5, 5, 0.1f) ||
+        glm::vec3(hierarchyDraws[3].transform[3]) != glm::vec3(-5, 0, 0.1f)) {
+        throw std::runtime_error("Hierarchical glTF draw list is incorrect");
+    }
+    auto const hierarchyPixels = checkDraws("hierarchical glTF", frame, hierarchyDraws, true, 4);
+    std::array<size_t, 3> dominantColors{};
+    for (glm::vec4 const& pixel : hierarchyPixels) {
+        for (int channel = 0; channel < 3; ++channel) {
+            if (pixel[channel] > pixel[(channel + 1) % 3] * 2.0f && pixel[channel] > pixel[(channel + 2) % 3] * 2.0f) {
+                ++dominantColors[channel];
+            }
+        }
+    }
+    if (std::any_of(dominantColors.begin(), dominantColors.end(), [](size_t count) { return count < 10; })) {
+        throw std::runtime_error("Hierarchical glTF did not display all three materials");
+    }
     std::vector<TestTriangle> triangles{{0.8f, {0, 1, 0}}, {0.2f, {0, 0, 1}}};
     auto const depthForward = check("overlapping depth", frame, testMesh(triangles), simple, true, 2);
     std::reverse(triangles.begin(), triangles.end());
@@ -158,17 +189,25 @@ void SoftwareRendererApp::validateBackends() {
     if (crowded != depthForward) {
         throw std::runtime_error("Crowded tile did not retain its nearest triangle");
     }
-    check("empty scene", frame, {}, simple, false, 0);
+    // Feedback must retain vertices outside the clip volume so our own clipper can
+    // construct new triangles, instead of losing them to fixed-function point clipping.
+    Mesh nearPlane = testMesh({{0.2f, {0, 0, 1}}});
+    nearPlane.vertices.front().position.z = 0.2f;
+    check("near-plane clipping", frame, nearPlane, simple, true, 2);
+    for (auto& vertex : nearPlane.vertices) {
+        vertex.position.z = 0.2f;
+    }
+    check("fully clipped mesh", frame, nearPlane, simple, false, 0);
+    checkDraws("empty scene", frame, {}, false, 0);
 
     // The scene keeps local vertices. Node transforms must be applied inside each renderer.
     Mesh transformed = testMesh({{0.2f, {0, 1, 0}}});
-    transformed.transform = glm::translate(glm::mat4{1}, glm::vec3{12, 2, 0}) *
-                            glm::rotate(glm::mat4{1}, 0.2f, glm::vec3{0, 0, 1}) *
-                            glm::scale(glm::mat4{1}, glm::vec3{0.8f, 0.9f, 1});
-    auto const nodeTransform = check("mesh node transform", frame, transformed, simple, true, 1);
+    glm::mat4 const nodeMatrix = glm::translate(glm::mat4{1}, glm::vec3{12, 2, 0}) *
+                                 glm::rotate(glm::mat4{1}, 0.2f, glm::vec3{0, 0, 1}) *
+                                 glm::scale(glm::mat4{1}, glm::vec3{0.8f, 0.9f, 1});
+    auto const nodeTransform = check("mesh node transform", frame, transformed, simple, true, 1, nodeMatrix);
     FrameState instanceFrame = frame;
-    instanceFrame.model = transformed.transform;
-    transformed.transform = glm::mat4{1};
+    instanceFrame.model = nodeMatrix;
     auto const instanceTransform = check("equivalent instance transform", instanceFrame, transformed, simple, true, 1);
     compareOutputs("node/instance transform equivalence", nodeTransform, instanceTransform, true);
 
@@ -178,7 +217,7 @@ void SoftwareRendererApp::validateBackends() {
         try {
             FrameState invalid = frame;
             invalid.extent = {0, 97};
-            renderer->render({}, simple, invalid);
+            renderer->render({}, invalid);
         }
         catch (std::invalid_argument const&) {
             rejected = true;
@@ -191,7 +230,8 @@ void SoftwareRendererApp::validateBackends() {
             invalid.indices = indices;
             rejected = false;
             try {
-                renderer->render(invalid, simple, frame);
+                DrawItem const draw{&invalid, &simple};
+                renderer->render(std::span{&draw, 1}, frame);
             }
             catch (std::invalid_argument const&) {
                 rejected = true;

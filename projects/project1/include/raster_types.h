@@ -49,9 +49,24 @@ struct RasterVertex {
 struct Mesh {
     std::vector<RasterVertex> vertices;
     std::vector<uint32_t> indices;
-    // Asset node transform, applied before FrameState::model by the renderer.
+};
+
+struct DrawItem {
+    Mesh const* mesh = nullptr;
+    PbrMaterial const* material = nullptr;
+    // World transform accumulated through the scene's node hierarchy.
     glm::mat4 transform{1.0f};
 };
+
+// Vertex-stage output, captured as four interleaved vec4 values by transform feedback.
+struct alignas(16) TransformedVertex {
+    glm::vec4 clip{0.0f};
+    glm::vec4 worldPosition{0.0f};
+    glm::vec4 normal{0.0f, 1.0f, 0.0f, 0.0f};
+    glm::vec4 uv{0.0f};
+};
+
+static_assert(sizeof(TransformedVertex) == 64);
 
 /* Packed triangle payload; fourteen vec4 texels preserve the C++/GLSL record layout. */
 struct alignas(16) PreparedVertex {
@@ -80,7 +95,7 @@ static_assert(sizeof(PreparedTriangle) == 224);
 
 struct FrameState {
     // Shared per-frame input. Both rasterizers use the same camera and light for comparison.
-    // Optional instance transform applied after scene-node transforms.
+    // Optional scene-wide transform applied after every node's world transform.
     glm::mat4 model{1.0f};
     // Camera world-to-view transform.
     glm::mat4 view{1.0f};
@@ -102,6 +117,8 @@ struct RendererStats {
     // GPU mode builds ordered, dynamically sized tile lists on CPU before drawing.
     // Reported separately from the GPU visibility/shading timer.
     float binningMilliseconds = 0.0f;
-    // Shared CPU vertex processing, clipping and triangle setup, before backend rendering.
+    // Geometry preparation wall time; GPU mode includes vertex draw and result readback.
     float preparationMilliseconds = 0.0f;
+    // GPU vertex shader and transform-feedback capture time; zero for the CPU backend.
+    float vertexMilliseconds = 0.0f;
 };

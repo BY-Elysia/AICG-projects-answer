@@ -17,6 +17,7 @@
 #include <imgui_impl_opengl3.h>
 
 constexpr char const* ModelPath = "models/DamagedHelmet.gltf";
+constexpr char const* TransformPath = "shaders/transform.vert";
 constexpr char const* VisibilityPath = "shaders/visibility.frag";
 constexpr char const* ShadingPath = "shaders/shading.frag";
 constexpr char const* DisplayVertexPath = "shaders/display.vert";
@@ -37,7 +38,8 @@ SoftwareRendererApp::SoftwareRendererApp(Config const& config)
     m_directionalLight.intensity = 10.0f;
 
     m_cpuRenderer = std::make_unique<CpuRenderer>();
-    m_gpuRenderer = std::make_unique<GpuRenderer>(getAssetPath(DisplayVertexPath).string(),
+    m_gpuRenderer = std::make_unique<GpuRenderer>(getAssetPath(TransformPath).string(),
+                                                  getAssetPath(DisplayVertexPath).string(),
                                                   getAssetPath(VisibilityPath).string(),
                                                   getAssetPath(ShadingPath).string());
 
@@ -102,7 +104,7 @@ void SoftwareRendererApp::renderFrame() {
 
     Renderer& renderer = m_renderBackend == RenderBackend::Cpu ? static_cast<Renderer&>(*m_cpuRenderer)
                                                                : static_cast<Renderer&>(*m_gpuRenderer);
-    m_stats = renderer.render(m_scene->mesh(), m_scene->material(), frame);
+    m_stats = renderer.render(m_scene->draws(), frame);
     auto const& output = renderer.outputTexture();
 
     // Rasterization is already complete; this pass only tone-maps the chosen HDR texture.
@@ -139,6 +141,7 @@ void SoftwareRendererApp::renderUi() {
         ImGui::Text("geometry time: %.3f ms", m_stats.preparationMilliseconds);
         ImGui::Text("raster time: %.3f ms", m_stats.milliseconds);
         if (m_renderBackend == RenderBackend::Gpu) {
+            ImGui::Text("GPU vertices: %.3f ms", m_stats.vertexMilliseconds);
             ImGui::Text("CPU binning: %.3f ms", m_stats.binningMilliseconds);
         }
         ImGui::ColorEdit3("light color", &m_directionalLight.color.x);

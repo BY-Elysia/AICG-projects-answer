@@ -1,16 +1,18 @@
 # CPU / GPU Rasterizer（OpenGL 4.1）
 
-使用仓库 `../../base` 框架的自行光栅化演示。CPU 和 GPU 共用模型变换、视锥裁剪及三角形准备，随后分别执行软件光栅化或片元着色器光栅化。项目请求 OpenGL 4.1 Core，所有着色器使用 GLSL 410；GPU 后端不依赖 compute shader、SSBO、image load/store 或 OpenGL 4.2+ 扩展。
+使用仓库 `../../base` 框架的自行光栅化演示。CPU 在 C++ 中变换顶点，GPU 使用顶点 shader 和 Transform Feedback；两个后端共用 CPU 视锥裁剪及三角形准备，随后分别执行软件光栅化或片元着色器光栅化。项目请求 OpenGL 4.1 Core，所有着色器使用 GLSL 410；GPU 后端不依赖 compute shader、SSBO、image load/store 或 OpenGL 4.2+ 扩展。
 
 ## 渲染管线与职责
 
-`RasterScene` 加载并保存原始 Mesh 顶点、索引、glTF 节点变换和材质。应用层通过 `Renderer` 接口把这些数据和帧参数直接交给 `CpuRenderer::render(mesh, material, frame)` 或 `GpuRenderer::render(mesh, material, frame)`。每个后端负责自己的完整渲染流程：根据帧尺寸管理输出，完成顶点处理、图元组装、齐次裁剪、透视除法、视口变换、背面剔除、光栅化、深度测试与 PBR 片元着色。
+`RasterScene` 保存 glTF 场景的根节点、子节点、mesh primitive 与材质。遍历节点时按 `parent * local` 累积变换，生成包含原始 Mesh、材质和节点世界变换的 `DrawItem` 列表；多个节点引用同一 mesh 时共用几何数据。应用层一次调用 `render(draws, frame)` 提交整组绘制项。两个后端都在整组图元上统一处理深度，按图元所属材质着色。
 
-两个后端在自己的 `render()` 内调用共享的 CPU 顶点处理和裁剪辅助函数。每个输入顶点只变换一次，再根据索引组装图元；`PreparedTriangle` 是各后端内部的三角形中间数据，不作为渲染器提交接口的输入。CPU 后端在软件中插值和着色，GPU 后端使用下面的 tile 列表及片元着色器。应用层只负责窗口、交互、相机与光照参数，以及 HDR 结果的色调映射和显示。
+两个后端在自己的 `render()` 内执行顶点阶段：CPU 调用 C++ 辅助函数，GPU 把原始顶点及矩阵交给 `transform.vert`。顶点位置、法线、世界坐标和 UV 以相同的 `TransformedVertex` 布局输出，随后调用共享的 CPU 裁剪和三角形准备函数。每个绘制项的输入顶点只变换一次，再根据索引组装图元；`PreparedTriangle` 是各后端内部的三角形中间数据，不作为渲染器提交接口的输入。CPU 后端在软件中插值和着色，GPU 后端使用下面的 tile 列表及片元着色器。应用层只负责窗口、交互、相机与光照参数，以及 HDR 结果的色调映射和显示。
 
 ## GPU 后端的数据流
 
-CPU 将三角形按 16×16 tile 分桶，生成 `(offset, count)` 和共享的变长索引数组，保持三角形提交顺序。GPU 可见性片元着色器逐像素遍历所属 tile 的列表，自行计算覆盖、重心坐标和深度，写入 R32UI 三角形 ID。随后 PBR 片元着色器读取胜出的三角形，完成透视校正插值和材质着色，写入 RGBA16F。两种后端通过同一全屏色调映射通道显示。
+原始顶点写入 VBO，顶点 shader 按 glTF 节点变换、实例变换、相机和投影处理每个顶点，并使用逆转置矩阵变换法线。该通道通过 RHI 绘制 Points，开启 `GL_RASTERIZER_DISCARD`，由 Transform Feedback 在硬件裁剪之前捕获四个 vec4 输出。结果读回 CPU，用于齐次裁剪、图元组装、透视除法、视口变换、背面剔除和 TBN 构建。读回会同步等待 GPU；这一版是混合管线，CPU 不再为 GPU 后端重复计算顶点变换。
+
+CPU 将整组绘制项的三角形按 16×16 tile 分桶，生成 `(offset, count)` 和共享的变长索引数组，保持提交顺序。GPU 可见性片元着色器逐像素遍历所属 tile 的列表，自行计算覆盖、重心坐标和深度，写入 R32UI 三角形 ID。PBR 片元着色器按材质对应的三角形范围逐次绘制，只为范围内胜出的图元写入 RGBA16F。两种后端通过同一全屏色调映射通道显示。
 
 所有全屏通道使用空 VAO 和 `gl_VertexID` 生成的单个全屏三角形，无需 VBO 或顶点属性。硬件只为这些全屏绘制产生片元；模型三角形的覆盖与深度仍由项目代码计算。数据放入 RGBA32F / RG32UI / R32UI 二维纹理，用 `texelFetch` 读取，避免依赖较大的 Buffer Texture 容量。每个 tile 不再有 1024 个三角形的上限，也不会因固定列表满了而丢弃三角形。总数据量仍受内存、32 位索引和 `GL_MAX_TEXTURE_SIZE` 限制；超过二维纹理容量会明确报错。
 
@@ -51,9 +53,10 @@ Intel Mac 将 triplet 改为 `x64-osx`。共享窗口框架已在 macOS 请求 f
 - 在 `Rasterizer` 面板切换 CPU / GPU fragment。
 - `light color`、`light intensity` 调节平行光；模型持续绕 Y 轴旋转。
 - `triangles` 表示裁剪并剔除背面后的三角形数。
-- `geometry time` 单独统计 Renderer 内顶点变换、图元组装、裁剪和三角形准备的 CPU 时间，两种后端使用相同统计口径。
-- CPU 模式的 `raster time` 包含软件光栅化、着色及像素上传的墙钟时间；GPU 模式统计可见性和 PBR 两次绘制的 GPU 时间。
-- GPU 模式的 `CPU binning` 单独显示 CPU 分桶耗时。GPU 时间不包含 CPU 分桶和输入纹理上传，两种后端的统计口径不同；均不包含共享模型准备和最终显示。
+- `geometry time` 统计几何准备的墙钟时间：CPU 模式包含顶点变换和裁剪；GPU 模式包含顶点上传、GPU 顶点通道、结果读回等待和 CPU 裁剪。
+- GPU 模式的 `GPU vertices` 使用 GPU 时间查询，单独统计顶点 shader 与 Transform Feedback 捕获耗时。
+- CPU 模式的 `raster time` 包含软件光栅化、着色及像素上传的墙钟时间；GPU 模式统计可见性和每个材质范围的 PBR 绘制的 GPU 时间。
+- GPU 模式的 `CPU binning` 单独显示 CPU 分桶耗时。`raster time` 不包含几何准备、CPU 分桶和输入纹理上传，两种后端的统计口径不同；均不包含最终显示。
 - Esc 或窗口关闭按钮退出。
 
 ## 验证
@@ -66,9 +69,9 @@ ctest --test-dir build/project1 -C Debug --output-on-failure
 .\build\project1\Debug\Rasterizer.exe --validate
 ```
 
-验证从原始 Mesh 输入开始比较完整 CPU/GPU 管线输出：两个分辨率（包括非整 tile 尺寸）、两个旋转角度、部分裁剪、遮挡深度与提交顺序、等深度的首次提交规则、每 tile 1301 个三角形且最近三角形最后提交、节点变换与等价实例变换、空场景、零尺寸和无效索引拒绝，以及实际窗口中的显示、UI 和多次后端切换。检查有限性、alpha、覆盖与色调映射后的误差，容许浮点运算、纹理采样和半精度存储误差。程序输出统计并以退出码报告结果；验证结束自动退出。
+验证从原始 Mesh 输入开始比较完整 CPU/GPU 管线输出：两个分辨率（包括非整 tile 尺寸）、两个旋转角度、层级 glTF 场景的多个节点、primitive、材质和重复 mesh 引用、侧面与近平面裁剪、全部裁掉的 Mesh、遮挡深度与提交顺序、等深度的首次提交规则、每 tile 1301 个三角形且最近三角形最后提交、节点变换与等价实例变换、空场景、零尺寸和无效索引拒绝，以及实际窗口中的显示、UI 和多次后端切换。检查有限性、alpha、覆盖与色调映射后的误差，容许浮点运算、纹理采样和半精度存储误差。程序输出统计并以退出码报告结果；验证结束自动退出。
 
-本项目保持单 mesh node、单 primitive、单 PBR 材质约束；材质使用五个可选贴图槽位，CPU 与 GPU 均使用 level 0、线性过滤和 repeat 寻址。
+当前支持 glTF 场景的多个根节点与子节点、重复 mesh 引用、一个 mesh 的多个三角形 primitive，以及每个 primitive 对应的 PBR 材质。primitive 需要 POSITION、NORMAL 和 TEXCOORD_0；纹理仍限于内嵌资源。材质使用五个可选贴图槽位，CPU 与 GPU 均使用 level 0、线性过滤和 repeat 寻址。
 
 ## 模型来源
 

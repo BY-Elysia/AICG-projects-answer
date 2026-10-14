@@ -4,11 +4,13 @@
 #include "tile_binning.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
 #include <limits>
 #include <stdexcept>
 #include <common/timer.h>
 #include <graphics/rhi.h>
+#include <glm/ext.hpp>
 
 namespace {
 void setSampler(gfx::GLProgram const& program, char const* name, int unit) {
@@ -16,11 +18,14 @@ void setSampler(gfx::GLProgram const& program, char const* name, int unit) {
 }
 } // namespace
 
-GpuRenderer::GpuRenderer(std::string const& vertexShader,
+GpuRenderer::GpuRenderer(std::string const& transformShader,
+                         std::string const& fullscreenShader,
                          std::string const& visibilityShader,
                          std::string const& shadingShader) {
-    m_visibilityProgram = makeDisplayProgram(vertexShader, visibilityShader);
-    m_shadingProgram = makeDisplayProgram(vertexShader, shadingShader);
+    m_transformProgram =
+        makeTransformFeedbackProgram(transformShader, {"tfClip", "tfWorldPosition", "tfNormal", "tfUv"});
+    m_visibilityProgram = makeDisplayProgram(fullscreenShader, visibilityShader);
+    m_shadingProgram = makeDisplayProgram(fullscreenShader, shadingShader);
     setSampler(*m_visibilityProgram, "uTriangles", 0);
     setSampler(*m_visibilityProgram, "uTileRanges", 1);
     setSampler(*m_visibilityProgram, "uTileIndices", 2);
@@ -34,9 +39,17 @@ GpuRenderer::GpuRenderer(std::string const& vertexShader,
     }
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &m_maxTextureSize);
     glGenQueries(1, &m_timeQuery);
+    glGenQueries(1, &m_vertexTimeQuery);
+    glGenTransformFeedbacks(1, &m_transformFeedback);
 }
 
 GpuRenderer::~GpuRenderer() {
+    if (m_transformFeedback) {
+        glDeleteTransformFeedbacks(1, &m_transformFeedback);
+    }
+    if (m_vertexTimeQuery) {
+        glDeleteQueries(1, &m_vertexTimeQuery);
+    }
     if (m_timeQuery) {
         glDeleteQueries(1, &m_timeQuery);
     }
@@ -80,16 +93,105 @@ void GpuRenderer::uploadPacked(std::unique_ptr<gfx::Texture2D>& texture,
     texture->update(padded.data(), pixelFormat, type);
 }
 
-RendererStats GpuRenderer::render(Mesh const& mesh, PbrMaterial const& material, FrameState const& frame) {
+std::vector<TransformedVertex> GpuRenderer::transformVertices(Mesh const& mesh,
+                                                              glm::mat4 const& transform,
+                                                              FrameState const& frame,
+                                                              float& milliseconds) {
+    milliseconds = 0.0f;
+    if (mesh.vertices.empty()) {
+        return {};
+    }
+    if (mesh.vertices.size() > static_cast<size_t>(std::numeric_limits<GLsizei>::max())) {
+        throw std::runtime_error("Too many vertices for the GPU vertex pass");
+    }
+    size_t const inputBytes = mesh.vertices.size() * sizeof(RasterVertex);
+    size_t const outputBytes = mesh.vertices.size() * sizeof(TransformedVertex);
+    if (!m_vertexBuffer) {
+        m_vertexBuffer = std::make_unique<gfx::Buffer>(
+            gfx::Buffer::UsageFlags::VertexBuffer, inputBytes, gfx::Buffer::Usage::DynamicDraw);
+        m_vertexVao.setFloatAttribute(
+            *m_vertexBuffer,
+            {0, 3, gfx::VertexArray::DataType::Float32, sizeof(RasterVertex), offsetof(RasterVertex, position)});
+        m_vertexVao.setFloatAttribute(
+            *m_vertexBuffer,
+            {1, 3, gfx::VertexArray::DataType::Float32, sizeof(RasterVertex), offsetof(RasterVertex, normal)});
+        m_vertexVao.setFloatAttribute(
+            *m_vertexBuffer,
+            {2, 2, gfx::VertexArray::DataType::Float32, sizeof(RasterVertex), offsetof(RasterVertex, uv)});
+    }
+    else if (m_vertexBuffer->getSize() != inputBytes) {
+        m_vertexBuffer->resize(inputBytes, gfx::Buffer::Usage::DynamicDraw);
+    }
+    m_vertexBuffer->write(mesh.vertices.data());
+    if (!m_transformedBuffer) {
+        m_transformedBuffer = std::make_unique<gfx::Buffer>(
+            gfx::Buffer::UsageFlags::TransformFeedbackBuffer, outputBytes, gfx::Buffer::Usage::DynamicRead);
+    }
+    else if (m_transformedBuffer->getSize() != outputBytes) {
+        m_transformedBuffer->resize(outputBytes, gfx::Buffer::Usage::DynamicRead);
+    }
+
+    m_transformProgram->use();
+    m_transformProgram->setUniform("uMeshTransform", transform);
+    m_transformProgram->setUniform("uModel", frame.model);
+    m_transformProgram->setUniform("uModelViewProjection", frame.projection * frame.view * frame.model);
+    m_transformProgram->setUniform("uNodeNormalTransform", glm::transpose(glm::inverse(glm::mat3(transform))));
+    m_transformProgram->setUniform("uNormalTransform", glm::transpose(glm::inverse(glm::mat3(frame.model))));
+
+    glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, m_transformFeedback);
+    m_transformedBuffer->bindAsTransformFeedback(0);
+    m_vertexVao.bind();
+    glEnable(GL_RASTERIZER_DISCARD);
+    glBeginQuery(GL_TIME_ELAPSED, m_vertexTimeQuery);
+    glBeginTransformFeedback(GL_POINTS);
+    gfx::RHI::draw(gfx::RHI::Primitive::Points, 0, static_cast<uint32_t>(mesh.vertices.size()));
+    glEndTransformFeedback();
+    glEndQuery(GL_TIME_ELAPSED);
+    glDisable(GL_RASTERIZER_DISCARD);
+    gfx::Buffer::unbindAsTransformFeedback(0);
+    glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
+    gfx::VertexArray::unbind();
+
+    // Reading synchronizes with the captured GPU writes. CPU clipping/binning need these
+    // varyings; the shader is the sole source of GPU-backend transformed vertices.
+    std::vector<TransformedVertex> vertices(mesh.vertices.size());
+    m_transformedBuffer->read(vertices.data());
+    GLuint64 nanoseconds = 0;
+    glGetQueryObjectui64v(m_vertexTimeQuery, GL_QUERY_RESULT, &nanoseconds);
+    milliseconds = static_cast<float>(nanoseconds) / 1'000'000.0f;
+    return vertices;
+}
+
+RendererStats GpuRenderer::render(std::span<DrawItem const> draws, FrameState const& frame) {
     resize(frame.extent);
     Timer geometryTimer;
     geometryTimer.tick();
-    auto const triangles = prepareTriangles(mesh, frame);
-    float const preparationMs = static_cast<float>(geometryTimer.tock() * 1000.0);
-
-    if (triangles.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-        throw std::runtime_error("Too many rasterizer triangles");
+    float vertexMs = 0.0f;
+    std::vector<PreparedTriangle> triangles;
+    struct MaterialRange {
+        PbrMaterial const* material;
+        uint32_t begin;
+        uint32_t end;
+    };
+    std::vector<MaterialRange> ranges;
+    for (DrawItem const& draw : draws) {
+        if (!draw.mesh || !draw.material) {
+            throw std::invalid_argument("Draw item needs a mesh and material");
+        }
+        float drawVertexMs = 0.0f;
+        auto const vertices = transformVertices(*draw.mesh, draw.transform, frame, drawVertexMs);
+        vertexMs += drawVertexMs;
+        auto prepared = prepareTriangles(vertices, draw.mesh->indices, frame.extent);
+        if (prepared.size() > static_cast<size_t>(std::numeric_limits<int>::max()) - triangles.size()) {
+            throw std::runtime_error("Too many rasterizer triangles");
+        }
+        uint32_t const begin = static_cast<uint32_t>(triangles.size());
+        triangles.insert(triangles.end(), prepared.begin(), prepared.end());
+        if (!prepared.empty()) {
+            ranges.push_back({draw.material, begin, static_cast<uint32_t>(triangles.size())});
+        }
     }
+    float const preparationMs = static_cast<float>(geometryTimer.tock() * 1000.0);
     Timer timer;
     timer.tick();
     RasterTiles const tiles = binTriangles(triangles, m_extent, TileSize);
@@ -135,30 +237,37 @@ RendererStats GpuRenderer::render(Mesh const& mesh, PbrMaterial const& material,
     // The owner texture is sampled only while a different framebuffer is bound. Ordinary
     // framebuffer writes and later texture reads are ordered; no image memory barrier is needed.
     m_shadingFramebuffer->bind();
+    constexpr GLfloat background[]{0.025f, 0.03f, 0.04f, 1.0f};
+    glClearBufferfv(GL_COLOR, 0, background);
     m_shadingProgram->use();
     m_triangleTexture->bindTextureUnit(0);
     m_ownerTexture->bindTextureUnit(1);
-    for (int i = 0; i < 5; ++i) {
-        if (material.hasTexture[i]) {
-            material.textures[i].gpuTexture->bindTextureUnit(2 + i);
-        }
-        else {
-            glActiveTexture(GL_TEXTURE0 + 2 + i);
-            glBindTexture(GL_TEXTURE_2D, 0);
-        }
-        m_shadingProgram->setUniform(m_hasTextureLocations[i], material.hasTexture[i]);
-    }
     m_shadingProgram->setUniform("uTriangleCount", static_cast<int>(triangles.size()));
     m_shadingProgram->setUniform("uCameraPosition", frame.cameraPosition);
     m_shadingProgram->setUniform("uLightDirection", frame.directionalLight.transform.getFront());
     m_shadingProgram->setUniform("uLightColor", frame.directionalLight.color);
     m_shadingProgram->setUniform("uLightIntensity", frame.directionalLight.intensity);
-    m_shadingProgram->setUniform("uBaseColorFactor", material.baseColorFactor);
-    m_shadingProgram->setUniform("uEmissiveFactor", material.emissiveFactor);
-    m_shadingProgram->setUniform("uMetallicFactor", material.metallicFactor);
-    m_shadingProgram->setUniform("uRoughnessFactor", material.roughnessFactor);
-    m_shadingProgram->setUniform("uOcclusionStrength", material.occlusionStrength);
-    gfx::RHI::draw(gfx::RHI::Primitive::Triangles, 0, 3);
+    for (MaterialRange const& range : ranges) {
+        PbrMaterial const& material = *range.material;
+        for (int i = 0; i < 5; ++i) {
+            if (material.hasTexture[i]) {
+                material.textures[i].gpuTexture->bindTextureUnit(2 + i);
+            }
+            else {
+                glActiveTexture(GL_TEXTURE0 + 2 + i);
+                glBindTexture(GL_TEXTURE_2D, 0);
+            }
+            m_shadingProgram->setUniform(m_hasTextureLocations[i], material.hasTexture[i]);
+        }
+        m_shadingProgram->setUniform("uTriangleBegin", range.begin);
+        m_shadingProgram->setUniform("uTriangleEnd", range.end);
+        m_shadingProgram->setUniform("uBaseColorFactor", material.baseColorFactor);
+        m_shadingProgram->setUniform("uEmissiveFactor", material.emissiveFactor);
+        m_shadingProgram->setUniform("uMetallicFactor", material.metallicFactor);
+        m_shadingProgram->setUniform("uRoughnessFactor", material.roughnessFactor);
+        m_shadingProgram->setUniform("uOcclusionStrength", material.occlusionStrength);
+        gfx::RHI::draw(gfx::RHI::Primitive::Triangles, 0, 3);
+    }
     gfx::VertexArray::unbind();
     gfx::Framebuffer::unbind();
     glEndQuery(GL_TIME_ELAPSED);
@@ -168,6 +277,7 @@ RendererStats GpuRenderer::render(Mesh const& mesh, PbrMaterial const& material,
         static_cast<float>(nanoseconds) / 1'000'000.0f,
         static_cast<uint32_t>(triangles.size()),
         binningMs,
-        preparationMs
+        preparationMs,
+        vertexMs
     };
 }

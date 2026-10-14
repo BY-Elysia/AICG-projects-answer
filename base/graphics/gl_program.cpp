@@ -477,7 +477,8 @@ static GLProgram::VarType getVarType(GLint type) {
     return GLProgram::VarType::Unknown;
 }
 
-GLProgram::GLProgram(std::vector<ShaderModule> const& shaderModules) {
+GLProgram::GLProgram(std::vector<ShaderModule> const& shaderModules,
+                     std::vector<std::string> const& transformFeedbackVaryings) {
     // create program and attach/link shader modules
     m_handle = glCreateProgram();
     checkGLErrors();
@@ -489,6 +490,14 @@ GLProgram::GLProgram(std::vector<ShaderModule> const& shaderModules) {
         attach(shaderModule);
     }
 
+    if (!transformFeedbackVaryings.empty()) {
+        std::vector<char const*> names;
+        names.reserve(transformFeedbackVaryings.size());
+        for (auto const& name : transformFeedbackVaryings) {
+            names.push_back(name.c_str());
+        }
+        glTransformFeedbackVaryings(m_handle, static_cast<GLsizei>(names.size()), names.data(), GL_INTERLEAVED_ATTRIBS);
+    }
     link();
 
     for (auto const& shaderModule : shaderModules) {

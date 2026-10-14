@@ -46,6 +46,8 @@ PreparedTriangle readTriangle(uint index) {
 
 // Valid element count in triangles[]; it validates the owner fetched from uOwner.
 uniform int uTriangleCount;
+uniform uint uTriangleBegin;
+uniform uint uTriangleEnd;
 // World-space camera position used to construct the V vector.
 uniform vec3 uCameraPosition;
 // Direction in which directional-light rays travel. Negating it produces surface-to-light L.
@@ -163,9 +165,9 @@ void main() {
     ivec2 pixel = ivec2(gl_FragCoord.xy);
     // The owner attachment identifies the nearest primitive selected by the depth comparison.
     uint triangleIndex = texelFetch(uOwner, pixel, 0).r;
-    if (triangleIndex == noOwner || triangleIndex >= uint(uTriangleCount)) {
-        outColor = vec4(0.025, 0.03, 0.04, 1.0);
-        return;
+    if (triangleIndex == noOwner || triangleIndex >= uint(uTriangleCount) || triangleIndex < uTriangleBegin
+        || triangleIndex >= uTriangleEnd) {
+        discard;
     }
 
     // Rebuild the winning triangle's affine barycentric coordinates at the pixel center.
