@@ -1,8 +1,8 @@
 #pragma once
 
 #include <array>
+#include <filesystem>
 #include <memory>
-#include <string>
 #include <graphics/buffer.h>
 #include <graphics/framebuffer.h>
 #include <graphics/gl_program.h>
@@ -14,10 +14,10 @@
 
 class GpuRenderer final : public Renderer {
 public:
-    GpuRenderer(std::string const& transformShader,
-                std::string const& rasterVertexShader,
-                std::string const& rasterGeometryShader,
-                std::string const& rasterFragmentShader);
+    GpuRenderer(std::filesystem::path const& transformShader,
+                std::filesystem::path const& rasterVertexShader,
+                std::filesystem::path const& rasterGeometryShader,
+                std::filesystem::path const& rasterFragmentShader);
 
     ~GpuRenderer() override = default;
 

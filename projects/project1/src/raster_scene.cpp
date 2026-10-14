@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <functional>
 #include <stdexcept>
+#include <string>
 
 #include <glm/ext.hpp>
 #define STB_IMAGE_IMPLEMENTATION
@@ -234,21 +235,22 @@ PbrMaterial loadMaterial(tg3_model const& model, tg3_material const& sourceMater
 
 } // namespace
 
-RasterScene::RasterScene(std::string const& filePath) {
+RasterScene::RasterScene(std::filesystem::path const& filePath) {
     load(filePath);
     uploadTextures();
 }
 
 RasterScene::~RasterScene() = default;
 
-void RasterScene::load(std::string const& filePath) {
+void RasterScene::load(std::filesystem::path const& filePath) {
     tinygltf3::Model parsed;
     tinygltf3::ErrorStack errors;
     tg3_parse_options options;
     tg3_parse_options_init(&options);
     options.images_as_is = 1;
-    if (tinygltf3::parse_file(parsed, errors, filePath.c_str(), &options) != TG3_OK) {
-        std::string message = "Failed to load model: " + filePath;
+    std::string const filePathString = filePath.string();
+    if (tinygltf3::parse_file(parsed, errors, filePathString.c_str(), &options) != TG3_OK) {
+        std::string message = "Failed to load model: " + filePathString;
         for (uint32_t i = 0; i < errors.count(); ++i) {
             if (errors.entry(i)->message) {
                 message += "\n" + std::string(errors.entry(i)->message);

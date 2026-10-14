@@ -5,14 +5,15 @@
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
+#include <string>
 #include <vector>
 #include <common/timer.h>
 #include <graphics/rhi.h>
 
-GpuRenderer::GpuRenderer(std::string const& transformShader,
-                         std::string const& rasterVertexShader,
-                         std::string const& rasterGeometryShader,
-                         std::string const& rasterFragmentShader) {
+GpuRenderer::GpuRenderer(std::filesystem::path const& transformShader,
+                         std::filesystem::path const& rasterVertexShader,
+                         std::filesystem::path const& rasterGeometryShader,
+                         std::filesystem::path const& rasterFragmentShader) {
     m_transformProgram = makeTransformFeedbackProgram(transformShader,
                                                       gfx::GLProgram::TransformFeedbackBufferMode::Interleaved,
                                                       {"tfClip", "tfWorldPosition", "tfNormal", "tfUv"});

@@ -154,7 +154,7 @@ void SoftwareRendererApp::validateBackends() {
     PbrMaterial simple;
     simple.metallicFactor = 0;
     simple.roughnessFactor = 0.8f;
-    RasterScene hierarchy(getAssetPath("models/HierarchyTest.gltf").string());
+    RasterScene hierarchy(getAssetPath("models/HierarchyTest.gltf"));
     auto const hierarchyDraws = hierarchy.draws();
     if (hierarchyDraws.size() != 4 || hierarchyDraws[0].mesh == hierarchyDraws[1].mesh ||
         hierarchyDraws[2].mesh != hierarchyDraws[3].mesh || hierarchyDraws[0].material == hierarchyDraws[1].material ||

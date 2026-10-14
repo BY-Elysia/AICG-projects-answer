@@ -27,7 +27,7 @@ constexpr float ModelRotationRadiansPerSecond = 0.5f;
 
 SoftwareRendererApp::SoftwareRendererApp(Config const& config)
     : Application(config) {
-    m_scene = std::make_unique<RasterScene>(getAssetPath(ModelPath).string());
+    m_scene = std::make_unique<RasterScene>(getAssetPath(ModelPath));
 
     m_camera = std::make_unique<PerspectiveCamera>(glm::radians(45.0f), m_window.aspectRatio(), 0.1f, 100.0f);
     m_camera->transform.position = {0.0f, 0.0f, 5.0f};
@@ -39,10 +39,10 @@ SoftwareRendererApp::SoftwareRendererApp(Config const& config)
     m_directionalLight.intensity = 10.0f;
 
     m_cpuRenderer = std::make_unique<CpuRenderer>();
-    m_gpuRenderer = std::make_unique<GpuRenderer>(getAssetPath(TransformPath).string(),
-                                                  getAssetPath(RasterVertexPath).string(),
-                                                  getAssetPath(RasterGeometryPath).string(),
-                                                  getAssetPath(ShadingPath).string());
+    m_gpuRenderer = std::make_unique<GpuRenderer>(getAssetPath(TransformPath),
+                                                  getAssetPath(RasterVertexPath),
+                                                  getAssetPath(RasterGeometryPath),
+                                                  getAssetPath(ShadingPath));
 
     m_displayProgram = makeDisplayProgram(getAssetPath(DisplayVertexPath), getAssetPath(DisplayFragmentPath));
 

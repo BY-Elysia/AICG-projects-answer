@@ -2,14 +2,14 @@
 
 #include <cstdint>
 #include <span>
-#include <string>
+#include <filesystem>
 #include <vector>
 
 #include "raster_types.h"
 
 class RasterScene {
 public:
-    explicit RasterScene(std::string const& filePath);
+    explicit RasterScene(std::filesystem::path const& filePath);
 
     ~RasterScene();
 
@@ -34,7 +34,7 @@ private:
     std::vector<DrawItem> m_draws;
 
 private:
-    void load(std::string const& filePath);
+    void load(std::filesystem::path const& filePath);
 
     void uploadTextures();
 };
