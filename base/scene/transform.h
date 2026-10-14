@@ -12,9 +12,9 @@ public:
     glm::vec3 scale = {1.0f, 1.0f, 1.0f};
 
 public:
-    void setFromTRS(const glm::mat4& trs);
+    void setFromTRS(glm::mat4 const& trs);
 
-    void lookAt(const glm::vec3& target, const glm::vec3& up = getDefaultUp());
+    void lookAt(glm::vec3 const& target, glm::vec3 const& up = getDefaultUp());
 
     glm::vec3 getFront() const;
 

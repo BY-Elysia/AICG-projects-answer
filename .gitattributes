@@ -1,12 +1,5 @@
-# Normalize text files to LF in the repository.
+# Normalize text files to LF in both the repository and working tree.
 * text=auto eol=lf
-
-# Windows-native project and script files retain CRLF.
-*.bat text eol=crlf
-*.cmd text eol=crlf
-*.sln text eol=crlf
-*.vcxproj text eol=crlf
-*.vcxproj.filters text eol=crlf
 
 # Text-based model assets.
 *.gltf text eol=lf

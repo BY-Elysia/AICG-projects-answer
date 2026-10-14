@@ -21,6 +21,5 @@ inline glm::vec3 randomVec3() {
 }
 
 inline glm::vec3 randomVec3(float minVal, float maxVal) {
-    return glm::vec3(
-        randomFloat(minVal, maxVal), randomFloat(minVal, maxVal), randomFloat(minVal, maxVal));
+    return glm::vec3(randomFloat(minVal, maxVal), randomFloat(minVal, maxVal), randomFloat(minVal, maxVal));
 }

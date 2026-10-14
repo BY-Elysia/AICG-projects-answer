@@ -10,7 +10,9 @@ public:
 public:
     Sphere() = default;
 
-    Sphere(const glm::vec3& position, float radius) : position(position), radius(radius) {}
+    Sphere(glm::vec3 const& position, float radius)
+        : position(position)
+        , radius(radius) {}
 
     static constexpr int getTexDataComponent() noexcept {
         return 4;

@@ -4,11 +4,7 @@
 
 struct Material {
 public:
-    enum class Type {
-        Lambertian,
-        Metal,
-        Dielectric
-    };
+    enum class Type { Lambertian, Metal, Dielectric };
 
 public:
     Type type;
@@ -19,8 +15,11 @@ public:
 public:
     Material() = default;
 
-    Material(Type type, float ior, float fuzz, const glm::vec3& albedo)
-        : type(type), ior(ior), fuzz(fuzz), albedo(albedo) {}
+    Material(Type type, float ior, float fuzz, glm::vec3 const& albedo)
+        : type(type)
+        , ior(ior)
+        , fuzz(fuzz)
+        , albedo(albedo) {}
 
     static constexpr int getTexDataComponent() noexcept {
         return 3;
