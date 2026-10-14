@@ -29,6 +29,7 @@ set(BASE_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/sampler.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/shader_module.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/buffer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/timer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/transform_feedback.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/vertex_array.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/texture/texture.cpp

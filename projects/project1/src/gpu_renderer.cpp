@@ -9,12 +9,6 @@
 #include <graphics/rhi.h>
 #include <glm/ext.hpp>
 
-namespace {
-void setSampler(gfx::GLProgram const& program, char const* name, int unit) {
-    program.setUniform(glGetUniformLocation(program.getNativeHandle(), name), unit);
-}
-} // namespace
-
 GpuRenderer::GpuRenderer(std::string const& transformShader,
                          std::string const& rasterVertexShader,
                          std::string const& rasterGeometryShader,
@@ -30,14 +24,9 @@ GpuRenderer::GpuRenderer(std::string const& transformShader,
     for (int i = 0; i < 5; ++i) {
         std::string const flag = "uHasTexture[" + std::to_string(i) + "]";
         std::string const sampler = "uTextures[" + std::to_string(i) + "]";
-        m_hasTextureLocations[i] = glGetUniformLocation(m_rasterProgram->getNativeHandle(), flag.c_str());
-        setSampler(*m_rasterProgram, sampler.c_str(), i);
+        m_hasTextureLocations[i] = m_rasterProgram->getUniformVarLocation(flag);
+        m_rasterProgram->setUniform(sampler, i);
     }
-    glGenQueries(static_cast<GLsizei>(m_timeQueries.size()), m_timeQueries.data());
-}
-
-GpuRenderer::~GpuRenderer() {
-    glDeleteQueries(static_cast<GLsizei>(m_timeQueries.size()), m_timeQueries.data());
 }
 
 void GpuRenderer::resizeBackend() {
@@ -80,11 +69,11 @@ void GpuRenderer::transformVertices(Mesh const& mesh, glm::mat4 const& transform
 
     m_transformFeedback.setBuffer(0, *m_transformedBuffer);
     inputVao.bind();
-    glEnable(GL_RASTERIZER_DISCARD);
+    gfx::RHI::enableRasterizerDiscard(true);
     m_transformFeedback.begin(gfx::RHI::Primitive::Triangles);
     gfx::RHI::drawIndexed(gfx::RHI::Primitive::Triangles, 0, static_cast<uint32_t>(indices.size()));
     gfx::TransformFeedback::end();
-    glDisable(GL_RASTERIZER_DISCARD);
+    gfx::RHI::enableRasterizerDiscard(false);
     gfx::TransformFeedback::unbind();
     gfx::VertexArray::unbind();
 }
@@ -95,8 +84,7 @@ void GpuRenderer::setMaterial(PbrMaterial const& material) {
             material.textures[i].gpuTexture->bindTextureUnit(i);
         }
         else {
-            glActiveTexture(GL_TEXTURE0 + i);
-            glBindTexture(GL_TEXTURE_2D, 0);
+            gfx::Texture2D::unbindFromTextureUnit(i);
         }
         m_rasterProgram->setUniform(m_hasTextureLocations[i], material.hasTexture[i]);
     }
@@ -120,7 +108,7 @@ RendererStats GpuRenderer::render(std::span<DrawItem const> draws, FrameState co
         if (indices.size() % 3 != 0) {
             throw std::invalid_argument("Mesh indices must describe complete triangles");
         }
-        if (indices.size() > static_cast<size_t>(std::numeric_limits<GLsizei>::max())) {
+        if (indices.size() > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
             throw std::runtime_error("Too many indices for the GPU vertex pass");
         }
         for (uint32_t index : indices) {
@@ -137,12 +125,8 @@ RendererStats GpuRenderer::render(std::span<DrawItem const> draws, FrameState co
         if (!m_queryPending[i]) {
             continue;
         }
-        GLint ready = GL_FALSE;
-        glGetQueryObjectiv(m_timeQueries[i], GL_QUERY_RESULT_AVAILABLE, &ready);
-        if (ready) {
-            GLuint64 nanoseconds = 0;
-            glGetQueryObjectui64v(m_timeQueries[i], GL_QUERY_RESULT, &nanoseconds);
-            m_lastGpuMilliseconds = static_cast<float>(nanoseconds) / 1'000'000.0f;
+        if (m_timeQueries[i].available()) {
+            m_lastGpuMilliseconds = m_timeQueries[i].getElapsedTime() * 1000.0f;
             m_queryPending[i] = false;
         }
     }
@@ -155,20 +139,19 @@ RendererStats GpuRenderer::render(std::span<DrawItem const> draws, FrameState co
     }
 
     m_framebuffer->bind();
-    glViewport(0, 0, m_extent.x, m_extent.y);
-    glDisable(GL_BLEND);
-    glDisable(GL_CULL_FACE);
-    glDisable(GL_SCISSOR_TEST);
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glDepthMask(GL_TRUE);
-    constexpr GLfloat background[]{0.025f, 0.03f, 0.04f, 1.0f};
-    constexpr GLfloat farDepth = 1.0f;
+    gfx::RHI::setViewport({static_cast<uint32_t>(m_extent.x), static_cast<uint32_t>(m_extent.y)});
+    gfx::RHI::enableBlend(false);
+    gfx::RHI::enableCullFace(false);
+    gfx::RHI::enableScissorTest(false);
+    gfx::RHI::enableDepthTest(true);
+    gfx::RHI::setDepthFunc(gfx::RHI::CompareFunc::Less);
+    gfx::RHI::enableDepthWrite(true);
+    gfx::RHI::setClearColor({0.025f, 0.03f, 0.04f, 1.0f});
+    gfx::RHI::setClearDepth(1.0f);
     if (queryIndex >= 0) {
-        glBeginQuery(GL_TIME_ELAPSED, m_timeQueries[queryIndex]);
+        m_timeQueries[queryIndex].tick();
     }
-    glClearBufferfv(GL_COLOR, 0, background);
-    glClearBufferfv(GL_DEPTH, 0, &farDepth);
+    gfx::RHI::clear(true, true);
 
     glm::mat4 const viewProjection = frame.projection * frame.view;
     glm::mat4 const inverseViewProjection = glm::inverse(viewProjection);
@@ -192,9 +175,9 @@ RendererStats GpuRenderer::render(std::span<DrawItem const> draws, FrameState co
         gfx::VertexArray::unbind();
     }
     gfx::Framebuffer::unbind();
-    glDisable(GL_DEPTH_TEST);
+    gfx::RHI::enableDepthTest(false);
     if (queryIndex >= 0) {
-        glEndQuery(GL_TIME_ELAPSED);
+        m_timeQueries[queryIndex].tock();
         m_queryPending[queryIndex] = true;
     }
     return {m_lastGpuMilliseconds, sourceTriangleCount, static_cast<float>(timer.tock() * 1000.0)};

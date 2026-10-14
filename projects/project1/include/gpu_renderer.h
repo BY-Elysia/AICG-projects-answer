@@ -3,11 +3,11 @@
 #include <array>
 #include <memory>
 #include <string>
-#include <glad/glad.h>
 #include <graphics/buffer.h>
 #include <graphics/framebuffer.h>
 #include <graphics/gl_program.h>
 #include <graphics/renderbuffer.h>
+#include <graphics/timer.h>
 #include <graphics/transform_feedback.h>
 #include <graphics/vertex_array.h>
 #include "renderer.h"
@@ -20,7 +20,7 @@ public:
                 std::string const& rasterGeometryShader,
                 std::string const& rasterFragmentShader);
 
-    ~GpuRenderer() override;
+    ~GpuRenderer() override = default;
 
     RendererStats render(std::span<DrawItem const> draws, FrameState const& frame) override;
 
@@ -33,7 +33,7 @@ private:
     std::array<int, 5> m_hasTextureLocations{};
     std::unique_ptr<gfx::Framebuffer> m_framebuffer;
     std::unique_ptr<gfx::Renderbuffer> m_depthBuffer;
-    std::array<GLuint, 3> m_timeQueries{};
+    std::array<gfx::Timer, 3> m_timeQueries;
     std::array<bool, 3> m_queryPending{};
     float m_lastGpuMilliseconds = 0.0f;
 

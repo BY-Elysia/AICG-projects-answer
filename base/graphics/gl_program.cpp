@@ -540,7 +540,11 @@ void GLProgram::unuse() {
 
 int GLProgram::getUniformVarLocation(std::string_view name) const {
     auto it = m_uniformVarInfos.find(name);
-    return it == m_uniformVarInfos.end() ? -1 : it->second.location;
+    if (it != m_uniformVarInfos.end()) {
+        return it->second.location;
+    }
+    // Array elements and sampler uniforms are not stored in m_uniformVarInfos.
+    return glGetUniformLocation(m_handle, std::string(name).c_str());
 }
 
 int GLProgram::getTextureBinding(std::string_view name) const {

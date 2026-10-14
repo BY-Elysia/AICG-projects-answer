@@ -75,6 +75,11 @@ uint32_t Texture2D::getNativeType() const {
     return GL_TEXTURE_2D;
 }
 
+void Texture2D::unbindFromTextureUnit(uint32_t texUnit) {
+    glActiveTexture(GL_TEXTURE0 + texUnit);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 void Texture2D::generateMipmap() {
     if (m_mipmapLevels == 1) {
         if (m_immutable) {

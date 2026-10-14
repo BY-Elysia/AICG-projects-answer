@@ -27,6 +27,8 @@ public:
 
     uint32_t getNativeType() const override;
 
+    static void unbindFromTextureUnit(uint32_t texUnit);
+
     uint32_t getWidth() const noexcept {
         return m_width;
     }

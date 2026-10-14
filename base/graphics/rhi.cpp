@@ -266,6 +266,10 @@ void RHI::setDepthFunc(CompareFunc func) {
     glDepthFunc(toNativeCompareFunc(func));
 }
 
+void RHI::enableRasterizerDiscard(bool enable) {
+    enable ? glEnable(GL_RASTERIZER_DISCARD) : glDisable(GL_RASTERIZER_DISCARD);
+}
+
 void RHI::enableStencilTest(bool enable) {
     enable ? glEnable(GL_STENCIL_TEST) : glDisable(GL_STENCIL_TEST);
 }

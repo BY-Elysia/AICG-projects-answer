@@ -100,6 +100,8 @@ public:
 
     static void setDepthFunc(CompareFunc func);
 
+    static void enableRasterizerDiscard(bool enable);
+
     // stencil
     static void enableStencilTest(bool enable);
 
