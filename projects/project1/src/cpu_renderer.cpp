@@ -104,5 +104,5 @@ RendererStats CpuRenderer::render(std::span<DrawItem const> draws, FrameState co
     }
     // Upload the CPU result so the same full-screen pass can present either renderer.
     m_outputTexture->update(m_color.data(), gfx::Texture::ExternalFormat::RGBA, gfx::Texture::PixelType::Float);
-    return {static_cast<float>(timer.tock() * 1000.0), static_cast<uint32_t>(triangles.size()), 0.0f, preparationMs};
+    return {static_cast<float>(timer.tock() * 1000.0), static_cast<uint32_t>(triangles.size()), preparationMs};
 }

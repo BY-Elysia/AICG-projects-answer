@@ -24,6 +24,7 @@ set(BASE_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/graphics_context.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/rhi.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/framebuffer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/renderbuffer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/gl_program.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/sampler.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/shader_module.cpp

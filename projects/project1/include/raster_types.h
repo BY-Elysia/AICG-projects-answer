@@ -3,13 +3,13 @@
 #include <array>
 #include <cstdint>
 #include <memory>
-#include <vector>
 
 #include <glm/glm.hpp>
 
 #include <scene/light/light.h>
 #include <graphics/texture/texture2d.h>
 #include "cpu_texture2d.h"
+#include "mesh.h"
 
 struct UnifiedTexture2D {
     // CPU texture abstraction owned by the material for CPU rasterizer sampling.
@@ -38,19 +38,6 @@ struct PbrMaterial {
     std::array<UnifiedTexture2D, 5> textures;
 };
 
-struct RasterVertex {
-    // Original mesh-local position and normal, before node and per-frame transforms.
-    glm::vec3 position{0.0f};
-    glm::vec3 normal{0.0f, 1.0f, 0.0f};
-    // TEXCOORD_0 used by all supported helmet material maps.
-    glm::vec2 uv{0.0f};
-};
-
-struct Mesh {
-    std::vector<RasterVertex> vertices;
-    std::vector<uint32_t> indices;
-};
-
 struct DrawItem {
     Mesh const* mesh = nullptr;
     PbrMaterial const* material = nullptr;
@@ -68,7 +55,7 @@ struct alignas(16) TransformedVertex {
 
 static_assert(sizeof(TransformedVertex) == 64);
 
-/* Packed triangle payload; fourteen vec4 texels preserve the C++/GLSL record layout. */
+// CPU geometry-stage triangle with the attributes needed for software rasterization.
 struct alignas(16) PreparedVertex {
     // xy is pixel-space position, z is normalized depth, and w is 1 / clip-space w.
     // The reciprocal is required to perform perspective-correct interpolation in both backends.
@@ -110,15 +97,10 @@ struct FrameState {
 };
 
 struct RendererStats {
-    // CPU wall time or GPU GL_TIME_ELAPSED result.
+    // CPU raster wall time or most recently available asynchronous GPU query result.
     float milliseconds = 0.0f;
-    // Number after clipping; one source triangle can become several.
+    // CPU: triangles after clipping; GPU: submitted source triangles.
     uint32_t triangleCount = 0;
-    // GPU mode builds ordered, dynamically sized tile lists on CPU before drawing.
-    // Reported separately from the GPU visibility/shading timer.
-    float binningMilliseconds = 0.0f;
-    // Geometry preparation wall time; GPU mode includes vertex draw and result readback.
+    // CPU geometry preparation, or CPU submission wall time for the GPU renderer.
     float preparationMilliseconds = 0.0f;
-    // GPU vertex shader and transform-feedback capture time; zero for the CPU backend.
-    float vertexMilliseconds = 0.0f;
 };

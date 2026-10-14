@@ -18,8 +18,9 @@
 
 constexpr char const* ModelPath = "models/DamagedHelmet.gltf";
 constexpr char const* TransformPath = "shaders/transform.vert";
-constexpr char const* VisibilityPath = "shaders/visibility.frag";
-constexpr char const* ShadingPath = "shaders/shading.frag";
+constexpr char const* RasterVertexPath = "shaders/raster_input.vert";
+constexpr char const* RasterGeometryPath = "shaders/raster_bounds.geom";
+constexpr char const* ShadingPath = "shaders/raster_shading.frag";
 constexpr char const* DisplayVertexPath = "shaders/display.vert";
 constexpr char const* DisplayFragmentPath = "shaders/display.frag";
 constexpr float ModelRotationRadiansPerSecond = 0.5f;
@@ -39,8 +40,8 @@ SoftwareRendererApp::SoftwareRendererApp(Config const& config)
 
     m_cpuRenderer = std::make_unique<CpuRenderer>();
     m_gpuRenderer = std::make_unique<GpuRenderer>(getAssetPath(TransformPath).string(),
-                                                  getAssetPath(DisplayVertexPath).string(),
-                                                  getAssetPath(VisibilityPath).string(),
+                                                  getAssetPath(RasterVertexPath).string(),
+                                                  getAssetPath(RasterGeometryPath).string(),
                                                   getAssetPath(ShadingPath).string());
 
     m_displayProgram = makeDisplayProgram(getAssetPath(DisplayVertexPath), getAssetPath(DisplayFragmentPath));
@@ -137,13 +138,12 @@ void SoftwareRendererApp::renderUi() {
         ImGui::RadioButton("GPU fragment", &mode, static_cast<int>(RenderBackend::Gpu));
         m_renderBackend = static_cast<RenderBackend>(mode);
         ImGui::Separator();
-        ImGui::Text("triangles: %u", m_stats.triangleCount);
-        ImGui::Text("geometry time: %.3f ms", m_stats.preparationMilliseconds);
-        ImGui::Text("raster time: %.3f ms", m_stats.milliseconds);
-        if (m_renderBackend == RenderBackend::Gpu) {
-            ImGui::Text("GPU vertices: %.3f ms", m_stats.vertexMilliseconds);
-            ImGui::Text("CPU binning: %.3f ms", m_stats.binningMilliseconds);
-        }
+        ImGui::Text(m_renderBackend == RenderBackend::Gpu ? "source triangles: %u" : "triangles: %u",
+                    m_stats.triangleCount);
+        ImGui::Text(m_renderBackend == RenderBackend::Gpu ? "CPU submit: %.3f ms" : "geometry time: %.3f ms",
+                    m_stats.preparationMilliseconds);
+        ImGui::Text(m_renderBackend == RenderBackend::Gpu ? "GPU time: %.3f ms" : "raster time: %.3f ms",
+                    m_stats.milliseconds);
         ImGui::ColorEdit3("light color", &m_directionalLight.color.x);
         ImGui::SliderFloat("light intensity", &m_directionalLight.intensity, 0.0f, 20.0f);
     }

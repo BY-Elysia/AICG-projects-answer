@@ -156,18 +156,20 @@ Mesh loadPrimitive(tg3_model const& model, tg3_primitive const& primitive) {
     }
 
     Mesh mesh;
-    mesh.vertices.reserve(vertexCount);
+    auto& vertices = mesh.editVertices();
+    vertices.reserve(vertexCount);
     for (size_t i = 0; i < vertexCount; ++i) {
         auto const* p =
             reinterpret_cast<float const*>(reinterpret_cast<uint8_t const*>(positions) + i * positionStride);
         auto const* n = reinterpret_cast<float const*>(reinterpret_cast<uint8_t const*>(normals) + i * normalStride);
         auto const* uv = reinterpret_cast<float const*>(reinterpret_cast<uint8_t const*>(uvs) + i * uvStride);
-        mesh.vertices.push_back({glm::make_vec3(p), glm::make_vec3(n), glm::make_vec2(uv)});
+        vertices.push_back({glm::make_vec3(p), glm::make_vec3(n), glm::make_vec2(uv)});
     }
     if (primitive.indices < 0) {
-        mesh.indices.reserve(vertexCount);
+        auto& indices = mesh.editIndices();
+        indices.reserve(vertexCount);
         for (size_t i = 0; i < vertexCount; ++i) {
-            mesh.indices.push_back(static_cast<uint32_t>(i));
+            indices.push_back(static_cast<uint32_t>(i));
         }
         return mesh;
     }
@@ -175,7 +177,8 @@ Mesh loadPrimitive(tg3_model const& model, tg3_primitive const& primitive) {
     tg3_buffer_view const& view = model.buffer_views[accessor.buffer_view];
     uint8_t const* indexData = model.buffers[view.buffer].data.data + view.byte_offset + accessor.byte_offset;
     int const stride = tg3_accessor_byte_stride(&accessor, &view);
-    mesh.indices.reserve(static_cast<size_t>(accessor.count));
+    auto& indices = mesh.editIndices();
+    indices.reserve(static_cast<size_t>(accessor.count));
     for (uint64_t i = 0; i < accessor.count; ++i) {
         uint8_t const* value = indexData + i * stride;
         uint32_t index = 0;
@@ -195,7 +198,7 @@ Mesh loadPrimitive(tg3_model const& model, tg3_primitive const& primitive) {
         default:
             throw std::runtime_error("unsupported index type");
         }
-        mesh.indices.push_back(index);
+        indices.push_back(index);
     }
     return mesh;
 }

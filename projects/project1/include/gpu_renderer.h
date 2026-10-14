@@ -3,21 +3,22 @@
 #include <array>
 #include <memory>
 #include <string>
-#include <vector>
 #include <glad/glad.h>
 #include <graphics/buffer.h>
 #include <graphics/framebuffer.h>
 #include <graphics/gl_program.h>
+#include <graphics/renderbuffer.h>
+#include <graphics/transform_feedback.h>
 #include <graphics/vertex_array.h>
 #include "renderer.h"
 
-// OpenGL 4.1: vertex shader transforms inputs; CPU clips/bins; fragment shaders rasterize/shade.
+// OpenGL 4.1: indexed vertex transform, on-GPU feedback, then shader rasterization.
 class GpuRenderer final : public Renderer {
 public:
     GpuRenderer(std::string const& transformShader,
-                std::string const& fullscreenShader,
-                std::string const& visibilityShader,
-                std::string const& shadingShader);
+                std::string const& rasterVertexShader,
+                std::string const& rasterGeometryShader,
+                std::string const& rasterFragmentShader);
 
     ~GpuRenderer() override;
 
@@ -25,35 +26,18 @@ public:
 
 private:
     std::unique_ptr<gfx::GLProgram> m_transformProgram;
-    std::unique_ptr<gfx::Buffer> m_vertexBuffer;
+    std::unique_ptr<gfx::GLProgram> m_rasterProgram;
     std::unique_ptr<gfx::Buffer> m_transformedBuffer;
-    gfx::VertexArray m_vertexVao;
-    GLuint m_transformFeedback = 0;
-    GLuint m_vertexTimeQuery = 0;
-    std::unique_ptr<gfx::GLProgram> m_visibilityProgram;
-    std::unique_ptr<gfx::GLProgram> m_shadingProgram;
-    std::array<int, 5> m_hasTextureLocations;
-    gfx::VertexArray m_fullscreenVao;
-    // Packed RGBA32F records: one PreparedTriangle occupies fourteen texels.
-    std::unique_ptr<gfx::Texture2D> m_triangleTexture;
-    // RG32UI (offset, count) for every tile and packed R32UI primitive indices.
-    std::unique_ptr<gfx::Texture2D> m_tileRangeTexture;
-    std::unique_ptr<gfx::Texture2D> m_tileIndexTexture;
-    std::unique_ptr<gfx::Texture2D> m_ownerTexture;
-    std::unique_ptr<gfx::Framebuffer> m_visibilityFramebuffer;
-    std::unique_ptr<gfx::Framebuffer> m_shadingFramebuffer;
-    GLuint m_timeQuery = 0;
-    int m_maxTextureSize = 0;
-    static constexpr int TileSize = 16;
+    gfx::TransformFeedback m_transformFeedback;
+    gfx::VertexArray m_feedbackVao;
+    std::array<int, 5> m_hasTextureLocations{};
+    std::unique_ptr<gfx::Framebuffer> m_framebuffer;
+    std::unique_ptr<gfx::Renderbuffer> m_depthBuffer;
+    std::array<GLuint, 3> m_timeQueries{};
+    std::array<bool, 3> m_queryPending{};
+    float m_lastGpuMilliseconds = 0.0f;
 
     void resizeBackend() override;
-    std::vector<TransformedVertex>
-    transformVertices(Mesh const& mesh, glm::mat4 const& transform, FrameState const& frame, float& milliseconds);
-    void uploadPacked(std::unique_ptr<gfx::Texture2D>& texture,
-                      size_t texelCount,
-                      gfx::Texture::Format format,
-                      gfx::Texture::ExternalFormat pixelFormat,
-                      gfx::Texture::PixelType type,
-                      size_t texelBytes,
-                      void const* data);
+    void transformVertices(Mesh const& mesh, glm::mat4 const& transform, FrameState const& frame);
+    void setMaterial(PbrMaterial const& material);
 };

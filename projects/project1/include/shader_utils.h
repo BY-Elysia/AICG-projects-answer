@@ -28,10 +28,11 @@ inline std::unique_ptr<gfx::GLProgram> makeDisplayProgram(std::filesystem::path 
     return std::make_unique<gfx::GLProgram>(modules);
 }
 
-inline std::unique_ptr<gfx::GLProgram> makeTransformFeedbackProgram(std::filesystem::path const& vertexPath,
-                                                                    std::vector<std::string> const& varyings) {
+inline std::unique_ptr<gfx::GLProgram>
+makeTransformFeedbackProgram(std::filesystem::path const& vertexPath,
+                             gfx::GLProgram::TransformFeedbackBufferMode bufferMode,
+                             std::vector<std::string> const& varyings) {
     std::vector<gfx::ShaderModule> modules;
     modules.push_back(loadShader(vertexPath, gfx::ShaderModule::Stage::Vertex));
-    return std::make_unique<gfx::GLProgram>(
-        modules, gfx::GLProgram::TransformFeedbackBufferMode::Interleaved, varyings);
+    return std::make_unique<gfx::GLProgram>(modules, bufferMode, varyings);
 }

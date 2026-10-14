@@ -13,11 +13,11 @@ namespace {
 std::vector<TransformedVertex>
 transformVertices(Mesh const& mesh, glm::mat4 const& transform, FrameState const& frame) {
     std::vector<TransformedVertex> vertices;
-    vertices.reserve(mesh.vertices.size());
+    vertices.reserve(mesh.vertices().size());
     glm::mat3 const nodeNormalTransform = glm::transpose(glm::inverse(glm::mat3(transform)));
     glm::mat3 const normalTransform = glm::transpose(glm::inverse(glm::mat3(frame.model)));
     glm::mat4 const modelViewProjection = frame.projection * frame.view * frame.model;
-    for (auto const& vertex : mesh.vertices) {
+    for (auto const& vertex : mesh.vertices()) {
         // Preserve the asset-node then instance-transform order for positions and normals.
         glm::vec3 const position = glm::vec3(transform * glm::vec4(vertex.position, 1.0f));
         glm::vec3 const normal = glm::normalize(nodeNormalTransform * vertex.normal);
@@ -79,7 +79,7 @@ void Renderer::resize(glm::ivec2 const& extent) {
 std::vector<PreparedTriangle>
 Renderer::prepareTriangles(Mesh const& mesh, glm::mat4 const& transform, FrameState const& frame) {
     auto const vertices = transformVertices(mesh, transform, frame);
-    return prepareTriangles(vertices, mesh.indices, frame.extent);
+    return prepareTriangles(vertices, mesh.indices(), frame.extent);
 }
 
 std::vector<PreparedTriangle> Renderer::prepareTriangles(std::span<TransformedVertex const> vertices,

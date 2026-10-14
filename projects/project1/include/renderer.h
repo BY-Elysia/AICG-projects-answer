@@ -26,7 +26,7 @@ protected:
 
     virtual void resizeBackend() = 0;
 
-    // Shared implementation helpers; prepared triangles never cross the backend entry point.
+    // CPU geometry helpers; prepared triangles never cross the backend entry point.
     void resize(glm::ivec2 const& extent);
     static std::vector<PreparedTriangle>
     prepareTriangles(Mesh const& mesh, glm::mat4 const& transform, FrameState const& frame);
