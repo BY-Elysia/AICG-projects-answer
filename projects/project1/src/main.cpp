@@ -13,7 +13,7 @@ int main(int argc, char* argv[]) {
                 validate = true;
             }
             else {
-                throw std::invalid_argument("Usage: Rasterizer [--validate]");
+                throw std::invalid_argument("Usage: software_renderer [--validate]");
             }
         }
         Application::Config config{

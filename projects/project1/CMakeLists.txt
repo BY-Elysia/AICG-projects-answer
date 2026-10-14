@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(Rasterizer LANGUAGES CXX)
+project(software_renderer LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(glad CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
@@ -40,7 +44,7 @@ file(GLOB_RECURSE BASE_HEADERS CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/*.h
     ${CMAKE_CURRENT_LIST_DIR}/../../base/scene/*.h)
 
-add_executable(Rasterizer
+add_executable(software_renderer
     ${PROJECT_SOURCES}
     ${PROJECT_HEADERS}
     ${PROJECT_ASSETS}
@@ -57,19 +61,18 @@ source_group(TREE ${CMAKE_CURRENT_LIST_DIR} FILES
     vcpkg.json)
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR}/../../base PREFIX base FILES ${BASE_SOURCES} ${BASE_HEADERS})
 
-target_compile_features(Rasterizer PRIVATE cxx_std_20)
-target_include_directories(Rasterizer PRIVATE
+target_include_directories(software_renderer PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/include
     ${CMAKE_CURRENT_LIST_DIR}/../../base
     ${Stb_INCLUDE_DIR}
     ${TINYGLTF_INCLUDE_DIR})
-target_link_libraries(Rasterizer PRIVATE glad::glad glfw glm::glm imgui::imgui)
-add_custom_command(TARGET Rasterizer POST_BUILD
+target_link_libraries(software_renderer PRIVATE glad::glad glfw glm::glm imgui::imgui)
+add_custom_command(TARGET software_renderer POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets
-        $<TARGET_FILE_DIR:Rasterizer>/assets
+        $<TARGET_FILE_DIR:software_renderer>/assets
     VERBATIM
 )
 
-set_property(TARGET Rasterizer PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:Rasterizer>")
+set_property(TARGET software_renderer PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:software_renderer>")
 enable_testing()
-add_test(NAME rasterizer_backends COMMAND Rasterizer --validate)
+add_test(NAME software_renderer_backends COMMAND software_renderer --validate)
