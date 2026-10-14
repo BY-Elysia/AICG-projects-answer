@@ -37,6 +37,10 @@ protected:
         return m_deltaTime;
     }
 
+    float getTotalTime() const noexcept {
+        return m_clock.getTotalTime();
+    }
+
     void resetClock() noexcept;
 
     std::filesystem::path getAssetPath(std::filesystem::path const& relativePath) const {
