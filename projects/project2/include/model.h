@@ -7,14 +7,18 @@
 #include "vertex.h"
 
 class Model {
-  public:
+public:
     explicit Model(std::filesystem::path const& path);
 
-    std::vector<Vertex> const& vertices() const noexcept { return m_vertices; }
+    std::vector<Vertex> const& vertices() const noexcept {
+        return m_vertices;
+    }
 
-    std::vector<Triangle> const& triangles() const noexcept { return m_triangles; }
+    std::vector<Triangle> const& triangles() const noexcept {
+        return m_triangles;
+    }
 
-  private:
+private:
     std::vector<Vertex> m_vertices;
     std::vector<Triangle> m_triangles;
 };

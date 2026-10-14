@@ -41,29 +41,27 @@ Model::Model(std::filesystem::path const& path) {
         size_t offset = 0;
         for (auto count : shape.mesh.num_face_vertices) {
             if (count != 3) {
-                throw std::runtime_error("Model contains a non-triangulated face: " +
-                                         path.string());
+                throw std::runtime_error("Model contains a non-triangulated face: " + path.string());
             }
 
             Triangle triangle;
             for (size_t i = 0; i < 3; ++i) {
                 auto const index = shape.mesh.indices.at(offset + i);
                 VertexIndex const key{index.vertex_index, index.normal_index, index.texcoord_index};
-                auto const [it, inserted] =
-                    indices.try_emplace(key, static_cast<uint32_t>(m_vertices.size()));
+                auto const [it, inserted] = indices.try_emplace(key, static_cast<uint32_t>(m_vertices.size()));
                 if (inserted) {
                     Vertex vertex;
                     for (size_t axis = 0; axis < 3; ++axis) {
-                        vertex.position[axis] =
-                            attributes.vertices.at(3 * index.vertex_index + axis);
+                        vertex.position[axis] = attributes.vertices.at(3 * index.vertex_index + axis);
                         if (index.normal_index >= 0) {
-                            vertex.normal[axis] =
-                                attributes.normals.at(3 * index.normal_index + axis);
+                            vertex.normal[axis] = attributes.normals.at(3 * index.normal_index + axis);
                         }
                     }
                     if (index.texcoord_index >= 0) {
-                        vertex.texCoord = {attributes.texcoords.at(2 * index.texcoord_index),
-                                           attributes.texcoords.at(2 * index.texcoord_index + 1)};
+                        vertex.texCoord = {
+                            attributes.texcoords.at(2 * index.texcoord_index),
+                            attributes.texcoords.at(2 * index.texcoord_index + 1)
+                        };
                     }
                     m_vertices.push_back(vertex);
                 }
@@ -82,9 +80,8 @@ Model::Model(std::filesystem::path const& path) {
     // Accumulate geometric normals only for vertices without OBJ normals.
     std::vector<glm::vec3> generatedNormals(m_vertices.size(), glm::vec3{0.0f});
     for (auto const& triangle : m_triangles) {
-        auto const normal =
-            glm::cross(m_vertices[triangle.v[1]].position - m_vertices[triangle.v[0]].position,
-                       m_vertices[triangle.v[2]].position - m_vertices[triangle.v[0]].position);
+        auto const normal = glm::cross(m_vertices[triangle.v[1]].position - m_vertices[triangle.v[0]].position,
+                                       m_vertices[triangle.v[2]].position - m_vertices[triangle.v[0]].position);
         for (auto index : triangle.v) {
             generatedNormals[index] += normal;
         }

@@ -14,13 +14,14 @@ inline gfx::ShaderModule loadShader(std::filesystem::path const& path, gfx::Shad
     }
     try {
         return gfx::ShaderModule{std::string{std::istreambuf_iterator<char>{input}, {}}, stage};
-    } catch (std::exception const& error) {
+    }
+    catch (std::exception const& error) {
         throw std::runtime_error("Shader " + path.string() + ": " + error.what());
     }
 }
 
-inline std::unique_ptr<gfx::GLProgram> makeDisplayProgram(
-    std::filesystem::path const& vertexPath, std::filesystem::path const& fragmentPath) {
+inline std::unique_ptr<gfx::GLProgram> makeDisplayProgram(std::filesystem::path const& vertexPath,
+                                                          std::filesystem::path const& fragmentPath) {
     std::vector<gfx::ShaderModule> modules;
     modules.push_back(loadShader(vertexPath, gfx::ShaderModule::Stage::Vertex));
     modules.push_back(loadShader(fragmentPath, gfx::ShaderModule::Stage::Fragment));

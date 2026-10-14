@@ -15,33 +15,32 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-constexpr const char* ModelPath = "models/DamagedHelmet.gltf";
-constexpr const char* VisibilityPath = "shaders/visibility.frag";
-constexpr const char* ShadingPath = "shaders/shading.frag";
-constexpr const char* DisplayVertexPath = "shaders/display.vert";
-constexpr const char* DisplayFragmentPath = "shaders/display.frag";
+constexpr char const* ModelPath = "models/DamagedHelmet.gltf";
+constexpr char const* VisibilityPath = "shaders/visibility.frag";
+constexpr char const* ShadingPath = "shaders/shading.frag";
+constexpr char const* DisplayVertexPath = "shaders/display.vert";
+constexpr char const* DisplayFragmentPath = "shaders/display.frag";
 constexpr float ModelRotationRadiansPerSecond = 0.5f;
 
-RasterizerApp::RasterizerApp(Config const& config) : Application(config) {
+RasterizerApp::RasterizerApp(Config const& config)
+    : Application(config) {
     m_scene = std::make_unique<RasterScene>(getAssetPath(ModelPath).string());
 
-    m_camera = std::make_unique<PerspectiveCamera>(
-        glm::radians(45.0f), m_window.aspectRatio(), 0.1f, 100.0f);
+    m_camera = std::make_unique<PerspectiveCamera>(glm::radians(45.0f), m_window.aspectRatio(), 0.1f, 100.0f);
     m_camera->transform.position = {0.0f, 0.0f, 5.0f};
 
     // Configure a light above the camera-facing left/front quadrant. getFront() below supplies
     // the direction in which its rays travel, matching FrameState's direction convention.
-    m_directionalLight.transform.rotation = glm::quatLookAt(
-        glm::normalize(glm::vec3(0.5f, -0.5f, -0.70710678f)), Transform::getDefaultUp());
+    m_directionalLight.transform.rotation =
+        glm::quatLookAt(glm::normalize(glm::vec3(0.5f, -0.5f, -0.70710678f)), Transform::getDefaultUp());
     m_directionalLight.intensity = 10.0f;
 
     m_cpuRasterizer = std::make_unique<CpuRasterizer>();
-    m_gpuRasterizer = std::make_unique<GpuRasterizer>(
-        getAssetPath(DisplayVertexPath).string(), getAssetPath(VisibilityPath).string(),
-        getAssetPath(ShadingPath).string());
+    m_gpuRasterizer = std::make_unique<GpuRasterizer>(getAssetPath(DisplayVertexPath).string(),
+                                                      getAssetPath(VisibilityPath).string(),
+                                                      getAssetPath(ShadingPath).string());
 
-    m_displayProgram = makeDisplayProgram(getAssetPath(DisplayVertexPath),
-                                          getAssetPath(DisplayFragmentPath));
+    m_displayProgram = makeDisplayProgram(getAssetPath(DisplayVertexPath), getAssetPath(DisplayFragmentPath));
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -77,8 +76,8 @@ void RasterizerApp::handleEvent(Event& event) {
 }
 
 void RasterizerApp::renderFrame() {
-    const auto width = m_window.framebufferWidth();
-    const auto height = m_window.framebufferHeight();
+    auto const width = m_window.framebufferWidth();
+    auto const height = m_window.framebufferHeight();
     if (width == 0 || height == 0) {
         return;
     }
@@ -87,15 +86,13 @@ void RasterizerApp::renderFrame() {
     m_titleSeconds += getDeltaTime();
     ++m_titleFrames;
     if (m_titleSeconds >= 1.0f) {
-        m_window.setTitle(std::format("CPU / GPU Rasterizer | {:.1f} FPS",
-                                     m_titleFrames / m_titleSeconds));
+        m_window.setTitle(std::format("CPU / GPU Rasterizer | {:.1f} FPS", m_titleFrames / m_titleSeconds));
         m_titleSeconds = 0.0f;
         m_titleFrames = 0;
     }
     FrameState frame;
-    frame.model = glm::rotate(
-        glm::mat4(1.0f), m_elapsedSeconds * ModelRotationRadiansPerSecond,
-        glm::vec3(0.0f, 1.0f, 0.0f));
+    frame.model =
+        glm::rotate(glm::mat4(1.0f), m_elapsedSeconds * ModelRotationRadiansPerSecond, glm::vec3(0.0f, 1.0f, 0.0f));
     frame.view = m_camera->getViewMatrix();
     frame.projection = m_camera->getProjectionMatrix();
     frame.cameraPosition = m_camera->transform.position;
@@ -105,12 +102,13 @@ void RasterizerApp::renderFrame() {
     m_cpuRasterizer->resize(frame.extent);
     m_gpuRasterizer->resize(frame.extent);
     // Build the same clipped, screen-space triangle list before selecting either backend.
-    const std::vector<PreparedTriangle> triangles = m_scene->prepare(frame);
-    const gfx::Texture2D* output = nullptr;
+    std::vector<PreparedTriangle> const triangles = m_scene->prepare(frame);
+    gfx::Texture2D const* output = nullptr;
     if (m_rasterBackend == RasterBackend::Cpu) {
         m_stats = m_cpuRasterizer->render(triangles, m_scene->material(), frame);
         output = &m_cpuRasterizer->outputTexture();
-    } else {
+    }
+    else {
         m_stats = m_gpuRasterizer->render(triangles, m_scene->material(), frame);
         output = &m_gpuRasterizer->outputTexture();
     }
@@ -122,7 +120,7 @@ void RasterizerApp::renderFrame() {
     glDisable(GL_SCISSOR_TEST);
     glViewport(0, 0, width, height);
     m_displayProgram->use();
-    const auto displayUnit = m_displayProgram->getTextureBinding("uHdrColor");
+    auto const displayUnit = m_displayProgram->getTextureBinding("uHdrColor");
     output->bindTextureUnit(displayUnit);
     m_fullscreenVao.bind();
     gfx::RHI::draw(gfx::RHI::Primitive::Triangles, 0, 3);
@@ -137,8 +135,7 @@ void RasterizerApp::renderUi() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-    const ImGuiWindowFlags flags =
-        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings;
+    ImGuiWindowFlags const flags = ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings;
     if (ImGui::Begin("Rasterizer", nullptr, flags)) {
         int mode = static_cast<int>(m_rasterBackend);
         ImGui::RadioButton("CPU", &mode, static_cast<int>(RasterBackend::Cpu));

@@ -159,13 +159,12 @@ Renderbuffer& Renderbuffer::operator=(Renderbuffer&& rhs) noexcept {
 void Renderbuffer::resize(uint32_t width, uint32_t height) {
     glBindRenderbuffer(GL_RENDERBUFFER, m_handle);
 
-    const auto format = toNativeFormat(m_format);
+    auto const format = toNativeFormat(m_format);
     if (m_samples > 1) {
-        glRenderbufferStorageMultisample(
-            GL_RENDERBUFFER, GLsizei(m_samples), format, GLsizei(width), GLsizei(height));
-    } else {
-        glRenderbufferStorage(
-            GL_RENDERBUFFER, format, GLsizei(width), GLsizei(height));
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, GLsizei(m_samples), format, GLsizei(width), GLsizei(height));
+    }
+    else {
+        glRenderbufferStorage(GL_RENDERBUFFER, format, GLsizei(width), GLsizei(height));
     }
 
     glBindRenderbuffer(GL_RENDERBUFFER, 0);

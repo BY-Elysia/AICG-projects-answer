@@ -10,5 +10,4 @@ struct RasterTiles {
     std::vector<uint32_t> indices;
 };
 
-RasterTiles binTriangles(std::vector<PreparedTriangle> const& triangles,
-                         glm::ivec2 extent, int tileSize);
+RasterTiles binTriangles(std::vector<PreparedTriangle> const& triangles, glm::ivec2 extent, int tileSize);

@@ -4,9 +4,12 @@
 #include <limits>
 #include <numeric>
 
-BVH::BVH(std::vector<Sphere> const& spheres, std::vector<Primitive> const& primitives,
-         std::vector<Triangle> const& triangles, std::vector<Vertex> const& vertices)
-    : m_primitiveBounds(primitives.size()), m_orderedPrimitiveIndices(primitives.size()) {
+BVH::BVH(std::vector<Sphere> const& spheres,
+         std::vector<Primitive> const& primitives,
+         std::vector<Triangle> const& triangles,
+         std::vector<Vertex> const& vertices)
+    : m_primitiveBounds(primitives.size())
+    , m_orderedPrimitiveIndices(primitives.size()) {
     for (size_t i = 0; i < primitives.size(); ++i) {
         auto const& primitive = primitives[i];
         auto& bounds = m_primitiveBounds[i];
@@ -14,7 +17,8 @@ BVH::BVH(std::vector<Sphere> const& spheres, std::vector<Primitive> const& primi
             auto const& sphere = spheres.at(primitive.shapeIndex);
             bounds.expand(sphere.position - glm::vec3{sphere.radius});
             bounds.expand(sphere.position + glm::vec3{sphere.radius});
-        } else {
+        }
+        else {
             for (auto index : triangles.at(primitive.shapeIndex).v) {
                 bounds.expand(vertices.at(index).position);
             }
@@ -48,8 +52,7 @@ int BVH::build(size_t begin, size_t end, size_t depth) {
     // Match the reference's one-primitive leaves and degenerate-centroid leaves.
     // Cap depth so the shader's fixed 64-entry traversal stack cannot overflow.
     if (count == 1 || min == max || depth >= 64) {
-        m_nodes[nodeIndex] = {bounds, NodeType::Leaf, static_cast<int>(begin),
-                              static_cast<int>(count)};
+        m_nodes[nodeIndex] = {bounds, NodeType::Leaf, static_cast<int>(begin), static_cast<int>(count)};
         return nodeIndex;
     }
 
@@ -61,8 +64,7 @@ int BVH::build(size_t begin, size_t end, size_t depth) {
     Bucket buckets[bucketCount];
     auto bucketIndex = [&](uint32_t index) {
         auto const centroid = m_primitiveBounds[index].centroid()[axis];
-        return std::clamp(static_cast<int>(bucketCount * (centroid - min) / (max - min)), 0,
-                          bucketCount - 1);
+        return std::clamp(static_cast<int>(bucketCount * (centroid - min) / (max - min)), 0, bucketCount - 1);
     };
     for (size_t i = begin; i < end; ++i) {
         auto const index = m_orderedPrimitiveIndices[i];
@@ -82,7 +84,8 @@ int BVH::build(size_t begin, size_t end, size_t depth) {
             if (i <= split) {
                 leftCount += buckets[i].count;
                 leftBounds.expand(buckets[i].bounds);
-            } else {
+            }
+            else {
                 rightCount += buckets[i].count;
                 rightBounds.expand(buckets[i].bounds);
             }
@@ -93,25 +96,24 @@ int BVH::build(size_t begin, size_t end, size_t depth) {
 
         // The reference's centroid-area denominator is common to all splits.
         // Comparing numerators also handles a zero-area centroid bound.
-        auto const cost =
-            leftCount * leftBounds.surfaceArea() + rightCount * rightBounds.surfaceArea();
+        auto const cost = leftCount * leftBounds.surfaceArea() + rightCount * rightBounds.surfaceArea();
         if (cost < minCost) {
             minCost = cost;
             splitBucket = split;
         }
     }
 
-    auto const split = std::partition(
-        m_orderedPrimitiveIndices.begin() + begin, m_orderedPrimitiveIndices.begin() + end,
-        [&](uint32_t index) { return bucketIndex(index) <= splitBucket; });
+    auto const split = std::partition(m_orderedPrimitiveIndices.begin() + begin,
+                                      m_orderedPrimitiveIndices.begin() + end,
+                                      [&](uint32_t index) { return bucketIndex(index) <= splitBucket; });
     auto middle = static_cast<size_t>(split - m_orderedPrimitiveIndices.begin());
     if (middle == begin || middle == end) {
         middle = begin + count / 2;
         std::nth_element(m_orderedPrimitiveIndices.begin() + begin,
                          m_orderedPrimitiveIndices.begin() + middle,
-                         m_orderedPrimitiveIndices.begin() + end, [&](uint32_t lhs, uint32_t rhs) {
-                             return m_primitiveBounds[lhs].centroid()[axis] <
-                                    m_primitiveBounds[rhs].centroid()[axis];
+                         m_orderedPrimitiveIndices.begin() + end,
+                         [&](uint32_t lhs, uint32_t rhs) {
+                             return m_primitiveBounds[lhs].centroid()[axis] < m_primitiveBounds[rhs].centroid()[axis];
                          });
     }
 

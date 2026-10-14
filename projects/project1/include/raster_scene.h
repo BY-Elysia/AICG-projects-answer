@@ -8,19 +8,19 @@
 
 class RasterScene {
 public:
-    explicit RasterScene(const std::string& filePath);
+    explicit RasterScene(std::string const& filePath);
 
     ~RasterScene();
 
-    RasterScene(const RasterScene&) = delete;
+    RasterScene(RasterScene const&) = delete;
 
-    RasterScene& operator=(const RasterScene&) = delete;
+    RasterScene& operator=(RasterScene const&) = delete;
 
-    const PbrMaterial& material() const {
+    PbrMaterial const& material() const {
         return m_material;
     }
 
-    std::vector<PreparedTriangle> prepare(const FrameState& frame) const;
+    std::vector<PreparedTriangle> prepare(FrameState const& frame) const;
 
 private:
     std::vector<RasterVertex> m_vertices;
@@ -28,7 +28,7 @@ private:
     PbrMaterial m_material;
 
 private:
-    void load(const std::string& filePath);
+    void load(std::string const& filePath);
 
     void uploadTextures();
 };

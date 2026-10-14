@@ -106,7 +106,8 @@ void VertexArray::setDoubleAttribute(Buffer const& buffer, VertexAttribute const
 
     void const* const offset{reinterpret_cast<void const*>(attribute.offset)};
     GLenum const type{toNativeDataType(attribute.dataType)};
-    glVertexAttribLPointer(attribute.location, GLint(attribute.componentCount), type, GLsizei(attribute.stride), offset);
+    glVertexAttribLPointer(
+        attribute.location, GLint(attribute.componentCount), type, GLsizei(attribute.stride), offset);
 
     glEnableVertexAttribArray(attribute.location);
     glVertexAttribDivisor(attribute.location, attribute.divisor);

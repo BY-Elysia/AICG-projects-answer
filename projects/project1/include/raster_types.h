@@ -29,13 +29,7 @@ struct PbrMaterial {
     // Weight applied to the occlusion texture's R channel.
     float occlusionStrength = 1.0f;
 
-    enum TextureSlot : int {
-        BaseColor = 0,
-        MetallicRoughness,
-        Normal,
-        Occlusion,
-        Emissive
-    };
+    enum TextureSlot : int { BaseColor = 0, MetallicRoughness, Normal, Occlusion, Emissive };
 
     // Avoid sampling an unbound texture when a glTF slot is absent.
     std::array<bool, 5> hasTexture{};

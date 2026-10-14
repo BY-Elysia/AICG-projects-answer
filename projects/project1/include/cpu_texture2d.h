@@ -96,13 +96,15 @@ public:
         Float
     };
 
-
 public:
     // Allocates internal-format storage and converts the optional source image into that storage.
     // A null source allocates deterministic zero-initialized storage of the requested size.
-    CpuTexture2D(
-        InternalFormat internalFormat, int width, int height, Format format, DataType dataType,
-        const void* pixels = nullptr);
+    CpuTexture2D(InternalFormat internalFormat,
+                 int width,
+                 int height,
+                 Format format,
+                 DataType dataType,
+                 void const* pixels = nullptr);
 
     ~CpuTexture2D();
 
@@ -128,16 +130,16 @@ public:
 
     // Replaces every base-level texel by converting one complete external-format source image into
     // this texture's internal storage. The source layout must match format() and dataType().
-    void updatePixels(const void* pixels);
+    void updatePixels(void const* pixels);
 
     // Samples only the base mip level. Because texture-coordinate derivatives are not available,
     // this lookup uses the texel filter portion of the configured minification filter.
-    glm::vec4 sample(const glm::vec2& uv) const;
+    glm::vec4 sample(glm::vec2 const& uv) const;
 
     // Samples the generated mip chain at an explicit continuous level-of-detail value. This lookup
     // uses the configured minification filter; level zero is the base texture and positive values
     // select progressively smaller levels.
-    glm::vec4 sampleMipMap(const glm::vec2& uv, float levelOfDetail) const;
+    glm::vec4 sampleMipMap(glm::vec2 const& uv, float levelOfDetail) const;
 
     // Returns the allocated base-level width in texels.
     int width() const;
@@ -158,7 +160,7 @@ public:
     void* pixels();
 
     // Exposes level-zero internal-format storage for read-only upload or inspection.
-    const void* pixels() const;
+    void const* pixels() const;
 
     // Returns the canonical component layout of mip level zero for GPU texture upload.
     Format storageFormat() const;
@@ -179,7 +181,8 @@ private:
 private:
     // Every owned mip level, including the level-zero base texture at index zero.
     // This is a simple implementation of the gpu mip chain, which is not required to be contiguous in memory.
-    // In GPU memory, the texture storage is optimized according to the internal format and whether the mipmap is required.
+    // In GPU memory, the texture storage is optimized according to the internal format and whether the mipmap is
+    // required.
     std::vector<MipLevel> m_mipLevels;
 
     // Internal representation used to encode each mip level and decode samples.
@@ -218,18 +221,17 @@ private:
 
     void clearGeneratedMipLevels() noexcept;
 
-    glm::vec4 texelFromLevel(
-        const void* pixels, int width, int height, int x, int y) const;
+    glm::vec4 texelFromLevel(void const* pixels, int width, int height, int x, int y) const;
 
-    glm::vec4 sampleLevel(const glm::vec2& uv, size_t level, Filter filter) const;
+    glm::vec4 sampleLevel(glm::vec2 const& uv, size_t level, Filter filter) const;
 
-    glm::vec4 sourceTexel(const std::byte* source) const;
+    glm::vec4 sourceTexel(std::byte const* source) const;
 
-    void writeTexel(std::byte* destination, const glm::vec4& value) const;
+    void writeTexel(std::byte* destination, glm::vec4 const& value) const;
 
-    float sourceComponent(const std::byte* source) const;
+    float sourceComponent(std::byte const* source) const;
 
-    float storedComponent(const std::byte* source) const;
+    float storedComponent(std::byte const* source) const;
 
     static float halfToFloat(uint16_t bits) noexcept;
 
@@ -255,15 +257,13 @@ private:
 
     static bool isTrilinear(Filter filter) noexcept;
 
-    template <typename T>
-    static T readComponent(const std::byte* source) noexcept {
+    template <typename T> static T readComponent(std::byte const* source) noexcept {
         T value;
         std::memcpy(&value, source, sizeof(T));
         return value;
     }
 
-    template <typename T>
-    static void writeComponent(std::byte* destination, T value) noexcept {
+    template <typename T> static void writeComponent(std::byte* destination, T value) noexcept {
         std::memcpy(destination, &value, sizeof(T));
     }
 };

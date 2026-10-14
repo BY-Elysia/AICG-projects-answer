@@ -24,7 +24,9 @@ struct AABB {
         expand(box.max);
     }
 
-    glm::vec3 centroid() const noexcept { return 0.5f * (min + max); }
+    glm::vec3 centroid() const noexcept {
+        return 0.5f * (min + max);
+    }
 
     int maximumExtentAxis() const noexcept {
         auto const extent = max - min;

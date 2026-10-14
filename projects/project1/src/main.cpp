@@ -11,7 +11,8 @@ int main(int argc, char* argv[]) {
         for (int i = 1; i < argc; ++i) {
             if (std::string_view{argv[i]} == "--validate") {
                 validate = true;
-            } else {
+            }
+            else {
                 throw std::invalid_argument("Usage: Rasterizer [--validate]");
             }
         }
@@ -25,18 +26,23 @@ int main(int argc, char* argv[]) {
                 .fullscreen = false,
                 .maximize = false,
                 .msaa = false,
-                .driverVersion = {4, 1}},
-            .assetRootDir = std::filesystem::absolute(argv[0]).parent_path() / "assets"};
+                .driverVersion = {4, 1}
+            },
+            .assetRootDir = std::filesystem::absolute(argv[0]).parent_path() / "assets"
+        };
         RasterizerApp app{config};
         if (validate) {
             app.validateBackends();
-        } else {
+        }
+        else {
             app.run();
         }
-    } catch (std::exception const& error) {
+    }
+    catch (std::exception const& error) {
         std::cerr << error.what() << '\n';
         return EXIT_FAILURE;
-    } catch (...) {
+    }
+    catch (...) {
         std::cerr << "Unknown error\n";
         return EXIT_FAILURE;
     }

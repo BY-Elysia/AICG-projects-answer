@@ -10,7 +10,7 @@
 #include "vertex.h"
 
 class BVH {
-  public:
+public:
     enum class NodeType : int { Interior = 0, Leaf = 1 };
 
     struct Node {
@@ -20,18 +20,24 @@ class BVH {
         int second{0};
     };
 
-    BVH(std::vector<Sphere> const& spheres, std::vector<Primitive> const& primitives,
-        std::vector<Triangle> const& triangles, std::vector<Vertex> const& vertices);
+    BVH(std::vector<Sphere> const& spheres,
+        std::vector<Primitive> const& primitives,
+        std::vector<Triangle> const& triangles,
+        std::vector<Vertex> const& vertices);
 
-    std::vector<Node> const& nodes() const noexcept { return m_nodes; }
+    std::vector<Node> const& nodes() const noexcept {
+        return m_nodes;
+    }
 
     std::vector<uint32_t> const& orderedPrimitiveIndices() const noexcept {
         return m_orderedPrimitiveIndices;
     }
 
-    size_t height() const noexcept { return m_height; }
+    size_t height() const noexcept {
+        return m_height;
+    }
 
-  private:
+private:
     std::vector<AABB> m_primitiveBounds;
     std::vector<Node> m_nodes;
     std::vector<uint32_t> m_orderedPrimitiveIndices;

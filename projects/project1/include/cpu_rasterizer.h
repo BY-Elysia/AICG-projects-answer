@@ -8,9 +8,9 @@ class CpuRasterizer final : public Rasterizer {
 public:
     CpuRasterizer() = default;
 
-    RasterizerStats render(
-        const std::vector<PreparedTriangle>& triangles, const PbrMaterial& material,
-        const FrameState& frame) override;
+    RasterizerStats render(std::vector<PreparedTriangle> const& triangles,
+                           PbrMaterial const& material,
+                           FrameState const& frame) override;
 
 private:
     // D32F-equivalent software depth buffer. Smaller normalized depth is closer.
@@ -25,5 +25,4 @@ private:
 private:
     // Recreates the CPU-only visibility and color arrays after Rasterizer resizes its output image.
     void resizeBackend() override;
-
 };

@@ -3,7 +3,7 @@
 
 static RayTracer::Config parseConfig(int argc, char* argv[]) {
     RayTracer::Config config{
-        .windowConfig {
+        .windowConfig{
             .title = "Ray Tracer",
             .width = 640,
             .height = 360,
@@ -16,9 +16,7 @@ static RayTracer::Config parseConfig(int argc, char* argv[]) {
 
             .driverVersion = {4, 1}
         },
-        .assetRootDir {
-            std::filesystem::absolute(argv[0]).parent_path() / "assets"
-        }
+        .assetRootDir{std::filesystem::absolute(argv[0]).parent_path() / "assets"}
     };
 
     return config;
@@ -26,7 +24,7 @@ static RayTracer::Config parseConfig(int argc, char* argv[]) {
 
 int main(int argc, char* argv[]) {
     try {
-        RayTracer app{ parseConfig(argc, argv) };
+        RayTracer app{parseConfig(argc, argv)};
         app.run();
     }
     catch (std::exception const& error) {

@@ -24,13 +24,17 @@ namespace gfx {
 GraphicsContext::GraphicsContext(std::pair<int, int> const& minimumVersion)
     : m_driverVersion{minimumVersion} {
     constexpr std::array validVersions{
-        std::pair{4, 1}, std::pair{4, 2}, std::pair{4, 3},
-        std::pair{4, 4}, std::pair{4, 5}, std::pair{4, 6},
+        std::pair{4, 1},
+        std::pair{4, 2},
+        std::pair{4, 3},
+        std::pair{4, 4},
+        std::pair{4, 5},
+        std::pair{4, 6},
     };
 
     if (std::find(validVersions.begin(), validVersions.end(), minimumVersion) == validVersions.end()) {
-        throw std::invalid_argument(
-            std::format("OpenGL {}.{} is not a valid desktop OpenGL version", minimumVersion.first, minimumVersion.second));
+        throw std::invalid_argument(std::format(
+            "OpenGL {}.{} is not a valid desktop OpenGL version", minimumVersion.first, minimumVersion.second));
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);

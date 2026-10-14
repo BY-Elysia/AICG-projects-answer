@@ -18,12 +18,12 @@
 #include "sphere.h"
 
 class RayTracer final : public Application {
-  public:
+public:
     explicit RayTracer(Config const& config);
 
     ~RayTracer() override;
 
-  private:
+private:
     std::vector<Sphere> m_spheres;
     std::vector<Material> m_sphereMaterials;
     std::unique_ptr<Model> m_lucy;
@@ -63,7 +63,7 @@ class RayTracer final : public Application {
 
     static constexpr uint32_t kBufferWidth{2048};
 
-  private:
+private:
     void handleEvent(Event& event) override;
 
     void renderFrame() override;
@@ -98,5 +98,7 @@ class RayTracer final : public Application {
 
     void renderUI();
 
-    void resetAccumulation() noexcept { m_sampleCount = 0; }
+    void resetAccumulation() noexcept {
+        m_sampleCount = 0;
+    }
 };

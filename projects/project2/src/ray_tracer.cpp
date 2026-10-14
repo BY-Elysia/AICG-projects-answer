@@ -26,13 +26,13 @@
 
 static std::string readTextFile(std::filesystem::path const& path) {
     std::ifstream input{path};
-    if (!input)
+    if (!input) {
         throw std::runtime_error("Unable to open shader: " + path.string());
+    }
     return {std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
 }
 
-static gfx::GLProgram makeProgram(std::filesystem::path const& vertexPath,
-                                  std::filesystem::path const& fragmentPath) {
+static gfx::GLProgram makeProgram(std::filesystem::path const& vertexPath, std::filesystem::path const& fragmentPath) {
     std::vector<gfx::ShaderModule> modules;
     modules.emplace_back(readTextFile(vertexPath), gfx::ShaderModule::Stage::Vertex);
     modules.emplace_back(readTextFile(fragmentPath), gfx::ShaderModule::Stage::Fragment);
@@ -40,29 +40,30 @@ static gfx::GLProgram makeProgram(std::filesystem::path const& vertexPath,
     return gfx::GLProgram{modules};
 }
 
-RayTracer::RayTracer(Config const& config) : Application{config} {
+RayTracer::RayTracer(Config const& config)
+    : Application{config} {
     m_rayTracingProgram = std::make_unique<gfx::GLProgram>(
         makeProgram(getAssetPath("shaders/quad.vert"), getAssetPath("shaders/raytracing.frag")));
 
     m_screenQuad = std::make_unique<gfx::VertexArray>();
-    m_nearestSampler = std::make_unique<gfx::Sampler>(
-        gfx::Sampler::Description{.addressModeU = gfx::Sampler::AddressMode::ClampToEdge,
-                                  .addressModeV = gfx::Sampler::AddressMode::ClampToEdge,
-                                  .addressModeW = gfx::Sampler::AddressMode::ClampToEdge});
-    m_skyboxSampler = std::make_unique<gfx::Sampler>(
-        gfx::Sampler::Description{.minFilter = gfx::Sampler::Filter::Linear,
-                                  .magFilter = gfx::Sampler::Filter::Linear,
-                                  .addressModeU = gfx::Sampler::AddressMode::ClampToEdge,
-                                  .addressModeV = gfx::Sampler::AddressMode::ClampToEdge,
-                                  .addressModeW = gfx::Sampler::AddressMode::ClampToEdge});
+    m_nearestSampler = std::make_unique<gfx::Sampler>(gfx::Sampler::Description{
+        .addressModeU = gfx::Sampler::AddressMode::ClampToEdge,
+        .addressModeV = gfx::Sampler::AddressMode::ClampToEdge,
+        .addressModeW = gfx::Sampler::AddressMode::ClampToEdge
+    });
+    m_skyboxSampler = std::make_unique<gfx::Sampler>(gfx::Sampler::Description{
+        .minFilter = gfx::Sampler::Filter::Linear,
+        .magFilter = gfx::Sampler::Filter::Linear,
+        .addressModeU = gfx::Sampler::AddressMode::ClampToEdge,
+        .addressModeV = gfx::Sampler::AddressMode::ClampToEdge,
+        .addressModeW = gfx::Sampler::AddressMode::ClampToEdge
+    });
 
     m_presentProgram = std::make_unique<gfx::GLProgram>(
         makeProgram(getAssetPath("shaders/quad.vert"), getAssetPath("shaders/quad.frag")));
 
     // camera
-    m_camera = std::make_unique<PerspectiveCamera>(
-        glm::radians(60.0f),
-        m_window.aspectRatio(), 0.1f, 1000.0f);
+    m_camera = std::make_unique<PerspectiveCamera>(glm::radians(60.0f), m_window.aspectRatio(), 0.1f, 1000.0f);
     m_lucy = std::make_unique<Model>(getAssetPath("models/lucy.obj"));
     createSpheres();
     createSkybox();
@@ -116,14 +117,13 @@ void RayTracer::renderFrame() {
     gfx::RHI::enableCullFace(false);
     auto const view = m_camera->getViewMatrix();
     auto const projection = m_camera->getProjectionMatrix();
-    auto const screenToRaster = glm::scale(glm::mat4{1}, glm::vec3{.5f * w, .5f * h, 1}) *
-                                glm::translate(glm::mat4{1}, glm::vec3{1, 1, 0});
+    auto const screenToRaster =
+        glm::scale(glm::mat4{1}, glm::vec3{.5f * w, .5f * h, 1}) * glm::translate(glm::mat4{1}, glm::vec3{1, 1, 0});
     m_rayTracingProgram->use();
     m_sampleFramebuffers[m_currentWriteBuffer]->bind();
     m_rayTracingProgram->setUniform("totalSamples", m_sampleCount);
     m_rayTracingProgram->setUniform("camera.cameraToWorld", glm::inverse(view));
-    m_rayTracingProgram->setUniform("camera.rasterToCamera",
-                                    glm::inverse(projection) * glm::inverse(screenToRaster));
+    m_rayTracingProgram->setUniform("camera.rasterToCamera", glm::inverse(projection) * glm::inverse(screenToRaster));
     bindSceneTextures();
     drawScreenQuad();
     gfx::Framebuffer::unbind();
@@ -169,8 +169,9 @@ void RayTracer::updateCamera() {
         m_camera->transform.position -= m_camera->transform.getUp() * step;
         moved = true;
     }
-    if (moved)
+    if (moved) {
         resetAccumulation();
+    }
 }
 
 void RayTracer::createSpheres() {
@@ -199,12 +200,14 @@ void RayTracer::createSpheres() {
             auto const chooseMat = randomFloat();
             if (chooseMat < 0.4f) {
                 material = {Material::Type::Lambertian, 1.0f, 0.0f, randomVec3() * randomVec3()};
-            } else if (chooseMat < 0.95f) {
+            }
+            else if (chooseMat < 0.95f) {
                 material.type = Material::Type::Metal;
                 material.ior = 1.0f;
                 material.fuzz = randomFloat(0.0f, 0.5f);
                 material.albedo = randomVec3(0.5f, 1.0f);
-            } else {
+            }
+            else {
                 material = {Material::Type::Dielectric, 1.5f, 0.0f, glm::vec3{1.0f}};
             }
 
@@ -216,16 +219,19 @@ void RayTracer::createSpheres() {
     m_spheres.emplace_back(glm::vec3{3.7f, 1.2f, 4.7f}, 1.2f);
     m_sphereMaterials.emplace_back(Material::Type::Dielectric, 1.5f, 0.0f, glm::vec3{1.0f});
     m_spheres.emplace_back(glm::vec3{-8.0f, 1.0f, -2.0f}, 1.0f);
-    m_sphereMaterials.emplace_back(Material::Type::Lambertian, 1.0f, 0.0f,
-                                   glm::vec3{0.2f, 0.4f, 0.8f});
+    m_sphereMaterials.emplace_back(Material::Type::Lambertian, 1.0f, 0.0f, glm::vec3{0.2f, 0.4f, 0.8f});
     m_spheres.emplace_back(glm::vec3{3.0f, 3.0f, -8.0f}, 2.4f);
     m_sphereMaterials.emplace_back(Material::Type::Metal, 1.0f, 0.0f, glm::vec3{0.7f, 0.6f, 0.5f});
 }
 
 void RayTracer::createSkybox() {
     static constexpr std::array<char const*, 6> paths{
-        "skyboxrt/right.jpg",  "skyboxrt/left.jpg",  "skyboxrt/top.jpg",
-        "skyboxrt/bottom.jpg", "skyboxrt/front.jpg", "skyboxrt/back.jpg",
+        "skyboxrt/right.jpg",
+        "skyboxrt/left.jpg",
+        "skyboxrt/top.jpg",
+        "skyboxrt/bottom.jpg",
+        "skyboxrt/front.jpg",
+        "skyboxrt/back.jpg",
     };
 
     std::array<unsigned char*, 6> pixels{};
@@ -236,8 +242,7 @@ void RayTracer::createSkybox() {
         int faceHeight{};
         int faceChannels{};
         auto const path = getAssetPath(paths[i]);
-        pixels[i] =
-            stbi_load(path.string().c_str(), &faceWidth, &faceHeight, &faceChannels, STBI_rgb);
+        pixels[i] = stbi_load(path.string().c_str(), &faceWidth, &faceHeight, &faceChannels, STBI_rgb);
         if (pixels[i] == nullptr) {
             for (auto* pixel : pixels) {
                 stbi_image_free(pixel);
@@ -248,7 +253,8 @@ void RayTracer::createSkybox() {
         if (i == 0) {
             width = faceWidth;
             height = faceHeight;
-        } else if (faceWidth != width || faceHeight != height) {
+        }
+        else if (faceWidth != width || faceHeight != height) {
             for (auto* pixel : pixels) {
                 stbi_image_free(pixel);
             }
@@ -262,11 +268,13 @@ void RayTracer::createSkybox() {
     }
 
     m_skybox = std::make_unique<gfx::TextureCubemap>(
-        gfx::TextureCubemap::Specification{.width = static_cast<uint32_t>(width),
-                                           .height = static_cast<uint32_t>(height),
-                                           .format = gfx::Texture::Format::RGB8,
-                                           .pixelFormat = gfx::Texture::ExternalFormat::RGB,
-                                           .pixelType = gfx::Texture::PixelType::UByte},
+        gfx::TextureCubemap::Specification{
+            .width = static_cast<uint32_t>(width),
+            .height = static_cast<uint32_t>(height),
+            .format = gfx::Texture::Format::RGB8,
+            .pixelFormat = gfx::Texture::ExternalFormat::RGB,
+            .pixelType = gfx::Texture::PixelType::UByte
+        },
         data);
 
     for (auto* pixel : pixels) {
@@ -286,18 +294,22 @@ void RayTracer::createTextures() {
     for (size_t i = 0; i < 2; ++i) {
         m_sampleFramebuffers[i] = std::make_unique<gfx::Framebuffer>();
         m_outFrames[i] = std::make_unique<gfx::Texture2D>(
-            gfx::Texture2D::Specification{.width = w,
-                                          .height = h,
-                                          .format = gfx::Texture::Format::RGBA32F,
-                                          .pixelFormat = gfx::Texture::ExternalFormat::RGBA,
-                                          .pixelType = gfx::Texture::PixelType::Float},
+            gfx::Texture2D::Specification{
+                .width = w,
+                .height = h,
+                .format = gfx::Texture::Format::RGBA32F,
+                .pixelFormat = gfx::Texture::ExternalFormat::RGBA,
+                .pixelType = gfx::Texture::PixelType::Float
+            },
             emptyFrame.data());
         m_rngStates[i] = std::make_unique<gfx::Texture2D>(
-            gfx::Texture2D::Specification{.width = w,
-                                          .height = h,
-                                          .format = gfx::Texture::Format::R32UI,
-                                          .pixelFormat = gfx::Texture::ExternalFormat::RedInt,
-                                          .pixelType = gfx::Texture::PixelType::UInt},
+            gfx::Texture2D::Specification{
+                .width = w,
+                .height = h,
+                .format = gfx::Texture::Format::R32UI,
+                .pixelFormat = gfx::Texture::ExternalFormat::RedInt,
+                .pixelType = gfx::Texture::PixelType::UInt
+            },
             rng.data());
         m_sampleFramebuffers[i]->attachAsColor(0, *m_outFrames[i]);
         m_sampleFramebuffers[i]->attachAsColor(1, *m_rngStates[i]);
@@ -335,13 +347,13 @@ void RayTracer::createScene1() {
     m_camera->transform.position = {0.0f, 0.0f, 12.0f};
     m_camera->transform.lookAt(glm::vec3{0.0f});
 
-    createPrimitiveBuffer(
-        {{{0.0f, 0.0f, 0.0f}, 1.5f}, {{4.0f, 0.0f, 0.0f}, 1.5f}, {{-4.0f, 0.0f, 0.0f}, 1.5f}}, {},
-        {},
-        {{Material::Type::Dielectric, 1.5f, 0.0f, {1.0f, 1.0f, 1.0f}},
-         {Material::Type::Metal, 1.0f, 0.0f, {0.7f, 0.6f, 0.5f}},
-         {Material::Type::Lambertian, 1.0f, 0.0f, {0.8f, 0.4f, 0.2f}}},
-        {});
+    createPrimitiveBuffer({{{0.0f, 0.0f, 0.0f}, 1.5f}, {{4.0f, 0.0f, 0.0f}, 1.5f}, {{-4.0f, 0.0f, 0.0f}, 1.5f}},
+                          {},
+                          {},
+                          {{Material::Type::Dielectric, 1.5f, 0.0f, {1.0f, 1.0f, 1.0f}},
+                           {Material::Type::Metal, 1.0f, 0.0f, {0.7f, 0.6f, 0.5f}},
+                           {Material::Type::Lambertian, 1.0f, 0.0f, {0.8f, 0.4f, 0.2f}}},
+                          {});
 }
 
 void RayTracer::createScene2() {
@@ -356,17 +368,16 @@ void RayTracer::createScene3() {
     m_camera->transform.lookAt({0.0f, 3.0f, 0.0f});
 
     auto const scale = glm::scale(glm::mat4{1.0f}, glm::vec3{0.6f});
-    auto const rotation =
-        glm::rotate(glm::mat4{1.0f}, glm::radians(90.0f), glm::vec3{0.0f, 1.0f, 0.0f});
-    createPrimitiveBuffer(
-        m_spheres, {m_lucy.get(), m_lucy.get(), m_lucy.get()},
-        {rotation * scale,
-         glm::translate(glm::mat4{1.0f}, glm::vec3{-4.0f, 0.0f, 2.0f}) * rotation * scale,
-         glm::translate(glm::mat4{1.0f}, glm::vec3{4.0f, 0.0f, -2.0f}) * rotation * scale},
-        m_sphereMaterials,
-        {{Material::Type::Dielectric, 1.5f, 0.0f, {1.0f, 1.0f, 1.0f}},
-         {Material::Type::Metal, 1.0f, 0.0f, {0.7f, 0.6f, 0.5f}},
-         {Material::Type::Lambertian, 1.0f, 0.0f, {0.8f, 0.4f, 0.2f}}});
+    auto const rotation = glm::rotate(glm::mat4{1.0f}, glm::radians(90.0f), glm::vec3{0.0f, 1.0f, 0.0f});
+    createPrimitiveBuffer(m_spheres,
+                          {m_lucy.get(), m_lucy.get(), m_lucy.get()},
+                          {rotation * scale,
+                           glm::translate(glm::mat4{1.0f}, glm::vec3{-4.0f, 0.0f, 2.0f}) * rotation * scale,
+                           glm::translate(glm::mat4{1.0f}, glm::vec3{4.0f, 0.0f, -2.0f}) * rotation * scale},
+                          m_sphereMaterials,
+                          {{Material::Type::Dielectric, 1.5f, 0.0f, {1.0f, 1.0f, 1.0f}},
+                           {Material::Type::Metal, 1.0f, 0.0f, {0.7f, 0.6f, 0.5f}},
+                           {Material::Type::Lambertian, 1.0f, 0.0f, {0.8f, 0.4f, 0.2f}}});
 }
 
 template <typename T> static uint32_t padBuffer(std::vector<T>& data, uint32_t components) {
@@ -405,34 +416,37 @@ void RayTracer::createPrimitiveBuffer(std::vector<Sphere> const& spheres,
     sphereData.reserve(spheres.size() * 4);
     for (size_t i = 0; i < spheres.size(); ++i) {
         auto const& sphere = spheres[i];
-        sphereData.insert(sphereData.end(),
-                          {sphere.position.x, sphere.position.y, sphere.position.z, sphere.radius});
-        scenePrimitives.push_back(
-            {Primitive::Type::Sphere, static_cast<uint32_t>(i), static_cast<uint32_t>(i)});
+        sphereData.insert(sphereData.end(), {sphere.position.x, sphere.position.y, sphere.position.z, sphere.radius});
+        scenePrimitives.push_back({Primitive::Type::Sphere, static_cast<uint32_t>(i), static_cast<uint32_t>(i)});
     }
     auto const sphereHeight = padBuffer(sphereData, 4);
     m_sphereBuffer = std::make_unique<gfx::Texture2D>(
-        gfx::Texture2D::Specification{.width = kBufferWidth,
-                                      .height = sphereHeight,
-                                      .format = gfx::Texture::Format::RGBA32F,
-                                      .pixelFormat = gfx::Texture::ExternalFormat::RGBA,
-                                      .pixelType = gfx::Texture::PixelType::Float},
+        gfx::Texture2D::Specification{
+            .width = kBufferWidth,
+            .height = sphereHeight,
+            .format = gfx::Texture::Format::RGBA32F,
+            .pixelFormat = gfx::Texture::ExternalFormat::RGBA,
+            .pixelType = gfx::Texture::PixelType::Float
+        },
         sphereData.data());
 
     for (size_t i = 0; i < models.size(); ++i) {
         auto const vertexOffset = static_cast<uint32_t>(vertices.size());
         auto const normalTransform = glm::mat3(glm::transpose(glm::inverse(transforms[i])));
         for (auto const& vertex : models[i]->vertices()) {
-            vertices.push_back({glm::vec3(transforms[i] * glm::vec4(vertex.position, 1.0f)),
-                                normalTransform * vertex.normal, vertex.texCoord});
+            vertices.push_back(
+                {glm::vec3(transforms[i] * glm::vec4(vertex.position, 1.0f)),
+                 normalTransform * vertex.normal,
+                 vertex.texCoord});
         }
 
         for (auto const& triangle : models[i]->triangles()) {
-            scenePrimitives.push_back({Primitive::Type::Triangle,
-                                       static_cast<uint32_t>(triangles.size()),
-                                       static_cast<uint32_t>(sphereMaterials.size() + i)});
-            triangles.push_back({{triangle.v[0] + vertexOffset, triangle.v[1] + vertexOffset,
-                                  triangle.v[2] + vertexOffset}});
+            scenePrimitives.push_back(
+                {Primitive::Type::Triangle,
+                 static_cast<uint32_t>(triangles.size()),
+                 static_cast<uint32_t>(sphereMaterials.size() + i)});
+            triangles.push_back(
+                {{triangle.v[0] + vertexOffset, triangle.v[1] + vertexOffset, triangle.v[2] + vertexOffset}});
         }
     }
 
@@ -442,16 +456,24 @@ void RayTracer::createPrimitiveBuffer(std::vector<Sphere> const& spheres,
     vertexData.reserve(vertices.size() * 8);
     for (auto const& vertex : vertices) {
         vertexData.insert(vertexData.end(),
-                          {vertex.position.x, vertex.position.y, vertex.position.z, vertex.normal.x,
-                           vertex.normal.y, vertex.normal.z, vertex.texCoord.x, vertex.texCoord.y});
+                          {vertex.position.x,
+                           vertex.position.y,
+                           vertex.position.z,
+                           vertex.normal.x,
+                           vertex.normal.y,
+                           vertex.normal.z,
+                           vertex.texCoord.x,
+                           vertex.texCoord.y});
     }
     auto const vertexHeight = padBuffer(vertexData, 4);
     m_vertexBuffer = std::make_unique<gfx::Texture2D>(
-        gfx::Texture2D::Specification{.width = kBufferWidth,
-                                      .height = vertexHeight,
-                                      .format = gfx::Texture::Format::RGBA32F,
-                                      .pixelFormat = gfx::Texture::ExternalFormat::RGBA,
-                                      .pixelType = gfx::Texture::PixelType::Float},
+        gfx::Texture2D::Specification{
+            .width = kBufferWidth,
+            .height = vertexHeight,
+            .format = gfx::Texture::Format::RGBA32F,
+            .pixelFormat = gfx::Texture::ExternalFormat::RGBA,
+            .pixelType = gfx::Texture::PixelType::Float
+        },
         vertexData.data());
 
     std::vector<int32_t> triangleData;
@@ -463,19 +485,25 @@ void RayTracer::createPrimitiveBuffer(std::vector<Sphere> const& spheres,
     }
     auto const triangleHeight = padBuffer(triangleData, 3);
     m_indexBuffer = std::make_unique<gfx::Texture2D>(
-        gfx::Texture2D::Specification{.width = kBufferWidth,
-                                      .height = triangleHeight,
-                                      .format = gfx::Texture::Format::RGB32I,
-                                      .pixelFormat = gfx::Texture::ExternalFormat::RGBInt,
-                                      .pixelType = gfx::Texture::PixelType::Int},
+        gfx::Texture2D::Specification{
+            .width = kBufferWidth,
+            .height = triangleHeight,
+            .format = gfx::Texture::Format::RGB32I,
+            .pixelFormat = gfx::Texture::ExternalFormat::RGBInt,
+            .pixelType = gfx::Texture::PixelType::Int
+        },
         triangleData.data());
 
     std::vector<float> materialData;
     materialData.reserve((sphereMaterials.size() + modelMaterials.size()) * 6);
     auto appendMaterial = [&](Material const& material) {
         materialData.insert(materialData.end(),
-                            {static_cast<float>(material.type), material.ior, material.fuzz,
-                             material.albedo.x, material.albedo.y, material.albedo.z});
+                            {static_cast<float>(material.type),
+                             material.ior,
+                             material.fuzz,
+                             material.albedo.x,
+                             material.albedo.y,
+                             material.albedo.z});
     };
     for (auto const& material : sphereMaterials) {
         appendMaterial(material);
@@ -485,11 +513,13 @@ void RayTracer::createPrimitiveBuffer(std::vector<Sphere> const& spheres,
     }
     auto const materialHeight = padBuffer(materialData, 3);
     m_materialBuffer = std::make_unique<gfx::Texture2D>(
-        gfx::Texture2D::Specification{.width = kBufferWidth,
-                                      .height = materialHeight,
-                                      .format = gfx::Texture::Format::RGB32F,
-                                      .pixelFormat = gfx::Texture::ExternalFormat::RGB,
-                                      .pixelType = gfx::Texture::PixelType::Float},
+        gfx::Texture2D::Specification{
+            .width = kBufferWidth,
+            .height = materialHeight,
+            .format = gfx::Texture::Format::RGB32F,
+            .pixelFormat = gfx::Texture::ExternalFormat::RGB,
+            .pixelType = gfx::Texture::PixelType::Float
+        },
         materialData.data());
 
     BVH bvh{spheres, scenePrimitives, triangles, vertices};
@@ -497,34 +527,45 @@ void RayTracer::createPrimitiveBuffer(std::vector<Sphere> const& spheres,
     primitiveData.reserve(scenePrimitives.size() * 3);
     for (auto index : bvh.orderedPrimitiveIndices()) {
         auto const& primitive = scenePrimitives[index];
-        primitiveData.insert(primitiveData.end(), {static_cast<int32_t>(primitive.type),
-                                                   static_cast<int32_t>(primitive.shapeIndex),
-                                                   static_cast<int32_t>(primitive.materialIndex)});
+        primitiveData.insert(primitiveData.end(),
+                             {static_cast<int32_t>(primitive.type),
+                              static_cast<int32_t>(primitive.shapeIndex),
+                              static_cast<int32_t>(primitive.materialIndex)});
     }
     auto const primitiveHeight = padBuffer(primitiveData, 3);
     m_primitiveBuffer = std::make_unique<gfx::Texture2D>(
-        gfx::Texture2D::Specification{.width = kBufferWidth,
-                                      .height = primitiveHeight,
-                                      .format = gfx::Texture::Format::RGB32I,
-                                      .pixelFormat = gfx::Texture::ExternalFormat::RGBInt,
-                                      .pixelType = gfx::Texture::PixelType::Int},
+        gfx::Texture2D::Specification{
+            .width = kBufferWidth,
+            .height = primitiveHeight,
+            .format = gfx::Texture::Format::RGB32I,
+            .pixelFormat = gfx::Texture::ExternalFormat::RGBInt,
+            .pixelType = gfx::Texture::PixelType::Int
+        },
         primitiveData.data());
 
     std::vector<float> bvhData;
     bvhData.reserve(bvh.nodes().size() * 9);
     for (auto const& node : bvh.nodes()) {
         bvhData.insert(bvhData.end(),
-                       {node.bounds.min.x, node.bounds.min.y, node.bounds.min.z, node.bounds.max.x,
-                        node.bounds.max.y, node.bounds.max.z, static_cast<float>(node.type),
-                        static_cast<float>(node.first), static_cast<float>(node.second)});
+                       {node.bounds.min.x,
+                        node.bounds.min.y,
+                        node.bounds.min.z,
+                        node.bounds.max.x,
+                        node.bounds.max.y,
+                        node.bounds.max.z,
+                        static_cast<float>(node.type),
+                        static_cast<float>(node.first),
+                        static_cast<float>(node.second)});
     }
     auto const bvhHeight = padBuffer(bvhData, 3);
     m_bvhBuffer = std::make_unique<gfx::Texture2D>(
-        gfx::Texture2D::Specification{.width = kBufferWidth,
-                                      .height = bvhHeight,
-                                      .format = gfx::Texture::Format::RGB32F,
-                                      .pixelFormat = gfx::Texture::ExternalFormat::RGB,
-                                      .pixelType = gfx::Texture::PixelType::Float},
+        gfx::Texture2D::Specification{
+            .width = kBufferWidth,
+            .height = bvhHeight,
+            .format = gfx::Texture::Format::RGB32F,
+            .pixelFormat = gfx::Texture::ExternalFormat::RGB,
+            .pixelType = gfx::Texture::PixelType::Float
+        },
         bvhData.data());
 
     m_rayTracingProgram->setUniform("nPrimitives", static_cast<int>(scenePrimitives.size()));

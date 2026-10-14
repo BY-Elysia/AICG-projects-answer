@@ -12,7 +12,6 @@ public:
     glm::mat4 getViewMatrix() const;
 
     virtual glm::mat4 getProjectionMatrix() const = 0;
-
 };
 
 class PerspectiveCamera : public Camera {
@@ -28,7 +27,6 @@ public:
     ~PerspectiveCamera() = default;
 
     glm::mat4 getProjectionMatrix() const override;
-
 };
 
 class OrthographicCamera : public Camera {
@@ -46,5 +44,4 @@ public:
     ~OrthographicCamera() = default;
 
     glm::mat4 getProjectionMatrix() const override;
-
 };
