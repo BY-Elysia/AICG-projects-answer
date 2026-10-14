@@ -8,10 +8,7 @@ class CpuRenderer final : public Renderer {
 public:
     CpuRenderer() = default;
 
-protected:
-    RendererStats renderPrepared(std::vector<PreparedTriangle> const& triangles,
-                                 PbrMaterial const& material,
-                                 FrameState const& frame) override;
+    RendererStats render(Mesh const& mesh, PbrMaterial const& material, FrameState const& frame) override;
 
 private:
     // D32F-equivalent software depth buffer. Smaller normalized depth is closer.

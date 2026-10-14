@@ -17,10 +17,7 @@ public:
 
     ~GpuRenderer() override;
 
-protected:
-    RendererStats renderPrepared(std::vector<PreparedTriangle> const& triangles,
-                                 PbrMaterial const& material,
-                                 FrameState const& frame) override;
+    RendererStats render(Mesh const& mesh, PbrMaterial const& material, FrameState const& frame) override;
 
 private:
     std::unique_ptr<gfx::GLProgram> m_visibilityProgram;

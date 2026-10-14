@@ -4,9 +4,9 @@
 
 ## 渲染管线与职责
 
-`RasterScene` 加载并保存原始 Mesh 顶点、索引、glTF 节点变换和材质。应用层选择 `CpuRenderer` 或 `GpuRenderer`，调用共同入口 `Renderer::render(mesh, material, frame)`；渲染器根据帧尺寸管理输出，并完成顶点处理、图元组装、齐次裁剪、透视除法、视口变换、背面剔除、光栅化、深度测试与 PBR 片元着色。
+`RasterScene` 加载并保存原始 Mesh 顶点、索引、glTF 节点变换和材质。应用层通过 `Renderer` 接口把这些数据和帧参数直接交给 `CpuRenderer::render(mesh, material, frame)` 或 `GpuRenderer::render(mesh, material, frame)`。每个后端负责自己的完整渲染流程：根据帧尺寸管理输出，完成顶点处理、图元组装、齐次裁剪、透视除法、视口变换、背面剔除、光栅化、深度测试与 PBR 片元着色。
 
-两个后端复用 Renderer 内的 CPU 顶点处理和裁剪代码。每个输入顶点只变换一次，再根据索引组装图元；`PreparedTriangle` 是渲染器内部的三角形中间数据，Scene 和应用层不再生成它。CPU 后端在软件中插值和着色，GPU 后端使用下面的 tile 列表及片元着色器。应用层只负责窗口、交互、相机与光照参数，以及 HDR 结果的色调映射和显示。
+两个后端在自己的 `render()` 内调用共享的 CPU 顶点处理和裁剪辅助函数。每个输入顶点只变换一次，再根据索引组装图元；`PreparedTriangle` 是各后端内部的三角形中间数据，不作为渲染器提交接口的输入。CPU 后端在软件中插值和着色，GPU 后端使用下面的 tile 列表及片元着色器。应用层只负责窗口、交互、相机与光照参数，以及 HDR 结果的色调映射和显示。
 
 ## GPU 后端的数据流
 

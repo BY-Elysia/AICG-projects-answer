@@ -5,7 +5,6 @@
 #include <cmath>
 #include <stdexcept>
 #include <utility>
-#include <common/timer.h>
 #include <glm/ext.hpp>
 #include <glm/gtx/exterior_product.hpp>
 
@@ -81,17 +80,6 @@ void Renderer::resize(glm::ivec2 const& extent) {
     m_extent = extent;
     m_outputTexture = makeRasterTexture(extent, gfx::Texture::Format::RGBA16F, gfx::Texture::ExternalFormat::RGBA);
     resizeBackend();
-}
-
-RendererStats Renderer::render(Mesh const& mesh, PbrMaterial const& material, FrameState const& frame) {
-    resize(frame.extent);
-    Timer timer;
-    timer.tick();
-    auto const triangles = prepareTriangles(mesh, frame);
-    float const preparationMs = static_cast<float>(timer.tock() * 1000.0);
-    auto stats = renderPrepared(triangles, material, frame);
-    stats.preparationMilliseconds = preparationMs;
-    return stats;
 }
 
 std::vector<PreparedTriangle> Renderer::prepareTriangles(Mesh const& mesh, FrameState const& frame) {

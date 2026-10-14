@@ -15,9 +15,13 @@ void CpuRenderer::resizeBackend() {
     m_color.resize(pixels);
 }
 
-RendererStats CpuRenderer::renderPrepared(std::vector<PreparedTriangle> const& triangles,
-                                          PbrMaterial const& material,
-                                          FrameState const& frame) {
+RendererStats CpuRenderer::render(Mesh const& mesh, PbrMaterial const& material, FrameState const& frame) {
+    resize(frame.extent);
+    Timer geometryTimer;
+    geometryTimer.tick();
+    auto const triangles = prepareTriangles(mesh, frame);
+    float const preparationMs = static_cast<float>(geometryTimer.tock() * 1000.0);
+
     Timer timer;
     timer.tick();
     // Clear depth to the far plane, clear owners to "no primitive", then paint the background.
@@ -87,5 +91,5 @@ RendererStats CpuRenderer::renderPrepared(std::vector<PreparedTriangle> const& t
     }
     // Upload the CPU result so the same full-screen pass can present either renderer.
     m_outputTexture->update(m_color.data(), gfx::Texture::ExternalFormat::RGBA, gfx::Texture::PixelType::Float);
-    return {static_cast<float>(timer.tock() * 1000.0), static_cast<uint32_t>(triangles.size())};
+    return {static_cast<float>(timer.tock() * 1000.0), static_cast<uint32_t>(triangles.size()), 0.0f, preparationMs};
 }

@@ -80,9 +80,13 @@ void GpuRenderer::uploadPacked(std::unique_ptr<gfx::Texture2D>& texture,
     texture->update(padded.data(), pixelFormat, type);
 }
 
-RendererStats GpuRenderer::renderPrepared(std::vector<PreparedTriangle> const& triangles,
-                                          PbrMaterial const& material,
-                                          FrameState const& frame) {
+RendererStats GpuRenderer::render(Mesh const& mesh, PbrMaterial const& material, FrameState const& frame) {
+    resize(frame.extent);
+    Timer geometryTimer;
+    geometryTimer.tick();
+    auto const triangles = prepareTriangles(mesh, frame);
+    float const preparationMs = static_cast<float>(geometryTimer.tock() * 1000.0);
+
     if (triangles.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
         throw std::runtime_error("Too many rasterizer triangles");
     }
@@ -160,5 +164,10 @@ RendererStats GpuRenderer::renderPrepared(std::vector<PreparedTriangle> const& t
     glEndQuery(GL_TIME_ELAPSED);
     GLuint64 nanoseconds = 0;
     glGetQueryObjectui64v(m_timeQuery, GL_QUERY_RESULT, &nanoseconds);
-    return {static_cast<float>(nanoseconds) / 1'000'000.0f, static_cast<uint32_t>(triangles.size()), binningMs};
+    return {
+        static_cast<float>(nanoseconds) / 1'000'000.0f,
+        static_cast<uint32_t>(triangles.size()),
+        binningMs,
+        preparationMs
+    };
 }

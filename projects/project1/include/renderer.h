@@ -10,8 +10,8 @@ class Renderer {
 public:
     virtual ~Renderer() = default;
 
-    // Shared vertex processing and clipping feed the selected rasterization/shading backend.
-    RendererStats render(Mesh const& mesh, PbrMaterial const& material, FrameState const& frame);
+    // Each backend receives original geometry and transforms, and owns its full pipeline.
+    virtual RendererStats render(Mesh const& mesh, PbrMaterial const& material, FrameState const& frame) = 0;
 
     // SoftwareRendererApp presents the HDR result separately from the rendering pipeline.
     gfx::Texture2D const& outputTexture() const {
@@ -24,11 +24,8 @@ protected:
     std::unique_ptr<gfx::Texture2D> m_outputTexture;
 
     virtual void resizeBackend() = 0;
-    virtual RendererStats renderPrepared(std::vector<PreparedTriangle> const& triangles,
-                                         PbrMaterial const& material,
-                                         FrameState const& frame) = 0;
 
-private:
+    // Shared implementation helpers; prepared triangles never cross the backend entry point.
     void resize(glm::ivec2 const& extent);
     static std::vector<PreparedTriangle> prepareTriangles(Mesh const& mesh, FrameState const& frame);
 };
