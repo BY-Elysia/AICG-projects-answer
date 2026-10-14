@@ -8,9 +8,8 @@
 #include "graphics/gl_utility.h"
 
 namespace gfx {
-namespace {
 
-std::string_view getStageName(ShaderModule::Stage stage) noexcept {
+static std::string_view getStageName(ShaderModule::Stage stage) noexcept {
     switch (stage) {
     case ShaderModule::Stage::Vertex:
         return "vertex";
@@ -44,8 +43,6 @@ std::string_view getStageName(ShaderModule::Stage stage) noexcept {
 
     return "unknown";
 }
-
-} // namespace
 
 static GLenum toNativeStage(ShaderModule::Stage stage) {
     switch (stage) {
