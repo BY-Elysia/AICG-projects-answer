@@ -80,8 +80,8 @@ Renderer::prepareTriangles(Mesh const& mesh, glm::mat4 const& transform, FrameSt
     return prepareTriangles(vertices, mesh.indices(), frame.extent);
 }
 
-std::vector<PreparedTriangle> Renderer::prepareTriangles(std::span<TransformedVertex const> vertices,
-                                                         std::span<uint32_t const> indices,
+std::vector<PreparedTriangle> Renderer::prepareTriangles(std::vector<TransformedVertex> const& vertices,
+                                                         std::vector<uint32_t> const& indices,
                                                          glm::ivec2 extent) {
     std::vector<PreparedTriangle> result;
     result.reserve(indices.size() / 3);

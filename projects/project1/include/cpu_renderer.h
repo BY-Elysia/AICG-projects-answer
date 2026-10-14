@@ -8,7 +8,7 @@ class CpuRenderer final : public Renderer {
 public:
     CpuRenderer() = default;
 
-    RendererStats render(std::span<DrawItem const> draws, FrameState const& frame) override;
+    RendererStats render(std::vector<DrawItem> const& draws, FrameState const& frame) override;
 
 private:
     // Per-pixel linear HDR color before glTexSubImage2D upload.

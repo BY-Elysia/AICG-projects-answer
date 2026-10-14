@@ -3,6 +3,7 @@
 #include <array>
 #include <filesystem>
 #include <memory>
+#include <vector>
 #include <graphics/buffer.h>
 #include <graphics/framebuffer.h>
 #include <graphics/gl_program.h>
@@ -21,7 +22,7 @@ public:
 
     ~GpuRenderer() override = default;
 
-    RendererStats render(std::span<DrawItem const> draws, FrameState const& frame) override;
+    RendererStats render(std::vector<DrawItem> const& draws, FrameState const& frame) override;
 
 private:
     std::unique_ptr<gfx::GLProgram> m_transformProgram;

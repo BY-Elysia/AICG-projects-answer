@@ -89,7 +89,7 @@ static Mesh testMesh(std::vector<TestTriangle> const& triangles) {
 void SoftwareRendererApp::validateBackends() {
     auto checkDraws = [this](std::string const& label,
                              FrameState const& frame,
-                             std::span<DrawItem const> draws,
+                             std::vector<DrawItem> const& draws,
                              bool expectGeometry,
                              std::optional<uint32_t> expectedTriangles = std::nullopt) {
         auto const cpuStats = m_cpuRenderer->render(draws, frame);
@@ -118,7 +118,7 @@ void SoftwareRendererApp::validateBackends() {
                      std::optional<uint32_t> expectedTriangles = std::nullopt,
                      glm::mat4 const& transform = glm::mat4{1}) {
         DrawItem const draw{&mesh, &material, transform};
-        return checkDraws(label, frame, std::span{&draw, 1}, expectGeometry, expectedTriangles);
+        return checkDraws(label, frame, std::vector{draw}, expectGeometry, expectedTriangles);
     };
 
     FrameState frame;
@@ -268,7 +268,7 @@ void SoftwareRendererApp::validateBackends() {
             rejected = false;
             try {
                 DrawItem const draw{&invalid, &simple};
-                renderer->render(std::span{&draw, 1}, frame);
+                renderer->render(std::vector{draw}, frame);
             }
             catch (std::invalid_argument const&) {
                 rejected = true;

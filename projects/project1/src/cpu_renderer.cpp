@@ -16,7 +16,7 @@ void CpuRenderer::resizeBackend() {
     m_color.resize(pixels);
 }
 
-RendererStats CpuRenderer::render(std::span<DrawItem const> draws, FrameState const& frame) {
+RendererStats CpuRenderer::render(std::vector<DrawItem> const& draws, FrameState const& frame) {
     resize(frame.extent);
     Timer geometryTimer;
     geometryTimer.tick();

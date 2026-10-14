@@ -94,7 +94,7 @@ void GpuRenderer::setMaterial(PbrMaterial const& material) {
     m_rasterProgram->setUniform("uOcclusionStrength", material.occlusionStrength);
 }
 
-RendererStats GpuRenderer::render(std::span<DrawItem const> draws, FrameState const& frame) {
+RendererStats GpuRenderer::render(std::vector<DrawItem> const& draws, FrameState const& frame) {
     resize(frame.extent);
     Timer timer;
     timer.tick();
