@@ -2,12 +2,12 @@
 #include "shader_utils.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include <vector>
 #include <common/timer.h>
 #include <graphics/rhi.h>
-#include <glm/ext.hpp>
 
 GpuRenderer::GpuRenderer(std::string const& transformShader,
                          std::string const& rasterVertexShader,
@@ -53,7 +53,7 @@ void GpuRenderer::transformVertices(Mesh const& mesh, glm::mat4 const& transform
                                              4,
                                              gfx::VertexArray::DataType::Float32,
                                              sizeof(TransformedVertex),
-                                             attribute * sizeof(glm::vec4)});
+                                             static_cast<intptr_t>(attribute * sizeof(glm::vec4))});
         }
     }
     else if (m_transformedBuffer->getSize() != outputBytes) {
