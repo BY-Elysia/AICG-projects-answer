@@ -1,0 +1,61 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.project.directory }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2022]
+        project:
+          - directory: project1
+            target: software_renderer
+          - directory: project2
+            target: ray_tracer
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux graphics dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev
+
+      - name: Bootstrap vcpkg
+        shell: pwsh
+        run: |
+          $vcpkg = Join-Path $env:RUNNER_TEMP 'vcpkg'
+          git clone https://github.com/microsoft/vcpkg.git $vcpkg
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($IsWindows) {
+            & (Join-Path $vcpkg 'bootstrap-vcpkg.bat')
+          } else {
+            & (Join-Path $vcpkg 'bootstrap-vcpkg.sh')
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          $toolchain = Join-Path $env:RUNNER_TEMP 'vcpkg/scripts/buildsystems/vcpkg.cmake'
+          cmake -S projects/${{ matrix.project.directory }} -B build/${{ matrix.project.directory }} "-DCMAKE_TOOLCHAIN_FILE=$toolchain" -DCMAKE_BUILD_TYPE=Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build
+        shell: pwsh
+        run: |
+          cmake --build build/${{ matrix.project.directory }} --config Release --target ${{ matrix.project.target }} --parallel 2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
