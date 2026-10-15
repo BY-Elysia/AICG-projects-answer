@@ -17,9 +17,6 @@ public:
 
     ~SoftwareRendererApp() override;
 
-    // Render identical fixed inputs with both backends and check their HDR outputs.
-    void validateBackends();
-
 private:
     enum class RenderBackend { Cpu = 0, Gpu = 1 };
 

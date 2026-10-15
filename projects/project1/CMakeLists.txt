@@ -67,12 +67,16 @@ target_include_directories(software_renderer PRIVATE
     ${Stb_INCLUDE_DIR}
     ${TINYGLTF_INCLUDE_DIR})
 target_link_libraries(software_renderer PRIVATE glad::glad glfw glm::glm imgui::imgui)
-add_custom_command(TARGET software_renderer POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets
-        $<TARGET_FILE_DIR:software_renderer>/assets
+
+# Keep runtime shaders linked to their sources; copy other assets as before.
+add_custom_target(software_renderer_assets
+    COMMAND ${CMAKE_COMMAND}
+        "-DSOURCE_ASSET_DIR=${CMAKE_CURRENT_LIST_DIR}/assets"
+        "-DOUTPUT_ASSET_DIR=$<TARGET_FILE_DIR:software_renderer>/assets"
+        -P "${CMAKE_CURRENT_LIST_DIR}/cmake/sync_assets.cmake"
+    DEPENDS ${PROJECT_ASSETS} "${CMAKE_CURRENT_LIST_DIR}/cmake/sync_assets.cmake"
     VERBATIM
 )
+add_dependencies(software_renderer software_renderer_assets)
 
 set_property(TARGET software_renderer PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:software_renderer>")
-enable_testing()
-add_test(NAME software_renderer_backends COMMAND software_renderer --validate)

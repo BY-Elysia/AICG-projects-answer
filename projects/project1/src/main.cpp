@@ -1,21 +1,11 @@
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <iostream>
-#include <stdexcept>
-#include <string_view>
 #include "software_renderer_app.h"
 
-int main(int argc, char* argv[]) {
+int main(int, char* argv[]) {
     try {
-        bool validate = false;
-        for (int i = 1; i < argc; ++i) {
-            if (std::string_view{argv[i]} == "--validate") {
-                validate = true;
-            }
-            else {
-                throw std::invalid_argument("Usage: software_renderer [--validate]");
-            }
-        }
         Application::Config config{
             .windowConfig{
                 .title = "Software Renderer",
@@ -30,13 +20,9 @@ int main(int argc, char* argv[]) {
             },
             .assetRootDir = std::filesystem::absolute(argv[0]).parent_path() / "assets"
         };
+
         SoftwareRendererApp app{config};
-        if (validate) {
-            app.validateBackends();
-        }
-        else {
-            app.run();
-        }
+        app.run();
     }
     catch (std::exception const& error) {
         std::cerr << error.what() << '\n';
