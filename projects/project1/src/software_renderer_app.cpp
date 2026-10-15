@@ -32,7 +32,7 @@ SoftwareRendererApp::SoftwareRendererApp(Config const& config)
 
     // camera
     m_camera.aspect = m_window.aspectRatio();
-    m_camera.transform.position = {0.0f, 0.0f, 5.0f};
+    m_camera.transform.position = {0.0f, 0.0f, 3.6f};
 
     // light
     m_directionalLight.transform.rotation =
