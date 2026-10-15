@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(RayTracer LANGUAGES CXX)
+project(ray_tracer LANGUAGES CXX)
 
 find_package(glad CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
@@ -36,7 +36,7 @@ file(GLOB_RECURSE BASE_HEADERS CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_LIST_DIR}/../../base/graphics/*.h
     ${CMAKE_CURRENT_LIST_DIR}/../../base/scene/*.h)
 
-add_executable(RayTracer
+add_executable(ray_tracer
     ${PROJECT_SOURCES}
     ${PROJECT_HEADERS}
     ${PROJECT_ASSETS}
@@ -53,14 +53,14 @@ source_group(TREE ${CMAKE_CURRENT_LIST_DIR} FILES
     vcpkg.json)
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR}/../../base PREFIX base FILES ${BASE_SOURCES} ${BASE_HEADERS})
 
-target_compile_features(RayTracer PRIVATE cxx_std_20)
-target_include_directories(RayTracer PRIVATE
+target_compile_features(ray_tracer PRIVATE cxx_std_20)
+target_include_directories(ray_tracer PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/include
     ${CMAKE_CURRENT_LIST_DIR}/../../base
     ${Stb_INCLUDE_DIR})
-target_link_libraries(RayTracer PRIVATE glad::glad glfw glm::glm tinyobjloader::tinyobjloader imgui::imgui)
-add_custom_command(TARGET RayTracer POST_BUILD
+target_link_libraries(ray_tracer PRIVATE glad::glad glfw glm::glm tinyobjloader::tinyobjloader imgui::imgui)
+add_custom_command(TARGET ray_tracer POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets
-        $<TARGET_FILE_DIR:RayTracer>/assets
+        $<TARGET_FILE_DIR:ray_tracer>/assets
     VERBATIM
 )
