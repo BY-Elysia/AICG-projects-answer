@@ -123,19 +123,19 @@ static void loadTexture(tg3_model const& model, int textureIndex, UnifiedTexture
     if (!decoded) {
         throw std::runtime_error("failed to decode a material texture");
     }
-    target.cpuTexture = std::make_unique<CpuTexture2D>(CpuTexture2D::InternalFormat::RGBA8,
+    target.cpuTexture = std::make_shared<CpuTexture2D>(CpuTexture2D::InternalFormat::RGBA8,
                                                        width,
                                                        height,
                                                        CpuTexture2D::Format::RedGreenBlueAlpha,
                                                        CpuTexture2D::DataType::UnsignedByte,
                                                        decoded);
     // Both renderers sample level zero with linear filtering and repeat addressing.
-    target.cpuSampler = CpuSampler{CpuSampler::Description{
+    target.cpuSampler = std::make_shared<CpuSampler>(CpuSampler::Description{
         .minFilter = CpuSampler::Filter::Linear,
         .magFilter = CpuSampler::Filter::Linear,
         .addressModeU = CpuSampler::AddressMode::Repeat,
         .addressModeV = CpuSampler::AddressMode::Repeat,
-    }};
+    });
     stbi_image_free(decoded);
 }
 
@@ -337,14 +337,14 @@ void RasterScene::load(std::filesystem::path const& filePath) {
         m_roots.push_back(loadNode(scene.nodes[i]));
     }
     std::function<void(Node const&, glm::mat4 const&)> submitNode = [&](Node const& node, glm::mat4 const& parent) {
-        glm::mat4 const world = parent * node.localTransform;
+        glm::mat4 const meshToScene = parent * node.localTransform;
         if (node.mesh >= 0) {
             for (PrimitiveRef const& primitive : primitives[node.mesh]) {
-                m_drawItems.push_back({&m_meshes[primitive.mesh], &m_materials[primitive.material], world});
+                m_drawItems.push_back({&m_meshes[primitive.mesh], &m_materials[primitive.material], meshToScene});
             }
         }
         for (Node const& child : node.children) {
-            submitNode(child, world);
+            submitNode(child, meshToScene);
         }
     };
     for (Node const& root : m_roots) {
@@ -360,7 +360,7 @@ void RasterScene::uploadTextures() {
             if (!material.hasTexture[i]) {
                 continue;
             }
-            texture.gpuTexture = std::make_unique<gfx::Texture2D>(
+            texture.gpuTexture = std::make_shared<gfx::Texture2D>(
                 gfx::Texture2D::Specification{
                     .width = static_cast<uint32_t>(texture.cpuTexture->width()),
                     .height = static_cast<uint32_t>(texture.cpuTexture->height()),

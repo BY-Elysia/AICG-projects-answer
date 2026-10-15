@@ -1,7 +1,9 @@
 #version 410 core
 
+// Clip each source triangle like buildScreenTriangles() on the CPU, then emit
+// candidate fragments for every triangle in the clipped polygon's fan.
 layout(triangles) in;
-layout(triangle_strip, max_vertices = 4) out;
+layout(triangle_strip, max_vertices = 21) out;
 
 in VertexData {
     vec4 clip;
@@ -10,46 +12,125 @@ in VertexData {
     vec2 uv;
 } vertexData[];
 
+// The fragment shader evaluates the screen-space edges itself. These values
+// must stay constant across each generated candidate triangle.
+flat out vec4 gScreenAndInvW[3];
 flat out vec3 gWorld[3];
 flat out vec3 gNormal[3];
 flat out vec2 gUv[3];
 
 uniform vec2 uExtent;
 
-void emitCorner(vec2 corner) {
-    for (int i = 0; i < 3; ++i) {
-        gWorld[i] = vertexData[i].worldPosition;
-        gNormal[i] = vertexData[i].normal;
-        gUv[i] = vertexData[i].uv;
+struct ClipVertex {
+    vec4 clip;
+    vec3 worldPosition;
+    vec3 normal;
+    vec2 uv;
+};
+
+// A triangle clipped by six planes has at most nine vertices. Keep the side
+// where dot(plane, vertex.clip) >= 0, just as the CPU clipAgainst() does.
+int clipAgainst(ClipVertex polygon[9], int count, vec4 plane, out ClipVertex clipped[9]) {
+    if (count == 0) {
+        return 0;
     }
-    gl_Position = vec4(corner, 0.0, 1.0);
-    EmitVertex();
+
+    int clippedCount = 0;
+    ClipVertex previous = polygon[count - 1];
+    float previousSide = dot(plane, previous.clip);
+    for (int i = 0; i < count; ++i) {
+        ClipVertex current = polygon[i];
+        float currentSide = dot(plane, current.clip);
+        bool currentInside = currentSide >= 0.0;
+        bool previousInside = previousSide >= 0.0;
+
+        if (currentInside != previousInside) {
+            float t = previousSide / (previousSide - currentSide);
+            clipped[clippedCount].clip = mix(previous.clip, current.clip, t);
+            clipped[clippedCount].worldPosition = mix(previous.worldPosition, current.worldPosition, t);
+            clipped[clippedCount].normal = normalize(mix(previous.normal, current.normal, t));
+            clipped[clippedCount].uv = mix(previous.uv, current.uv, t);
+            ++clippedCount;
+        }
+        if (currentInside) {
+            clipped[clippedCount] = current;
+            ++clippedCount;
+        }
+        previous = current;
+        previousSide = currentSide;
+    }
+    return clippedCount;
 }
 
 void main() {
-    vec2 minimum = vec2(-1.0);
-    vec2 maximum = vec2(1.0);
-    if (all(greaterThan(vec3(vertexData[0].clip.w, vertexData[1].clip.w, vertexData[2].clip.w),
-                        vec3(0.00001)))) {
-        minimum = vec2(1e20);
-        maximum = vec2(-1e20);
-        for (int i = 0; i < 3; ++i) {
-            vec2 ndc = vertexData[i].clip.xy / vertexData[i].clip.w;
-            minimum = min(minimum, ndc);
-            maximum = max(maximum, ndc);
+    ClipVertex polygon[9];
+    ClipVertex scratch[9];
+    for (int i = 0; i < 3; ++i) {
+        polygon[i].clip = vertexData[i].clip;
+        polygon[i].worldPosition = vertexData[i].worldPosition;
+        polygon[i].normal = vertexData[i].normal;
+        polygon[i].uv = vertexData[i].uv;
+    }
+
+    // OpenGL's homogeneous clip volume is -w <= x, y, z <= w.
+    vec4 planes[6] = vec4[6](vec4(1, 0, 0, 1), vec4(-1, 0, 0, 1),
+                             vec4(0, 1, 0, 1), vec4(0, -1, 0, 1),
+                             vec4(0, 0, 1, 1), vec4(0, 0, -1, 1));
+    int count = 3;
+    for (int plane = 0; plane < 6; ++plane) {
+        int clippedCount = clipAgainst(polygon, count, planes[plane], scratch);
+        count = clippedCount;
+        for (int i = 0; i < count; ++i) {
+            polygon[i] = scratch[i];
         }
-        // Cover boundary pixels despite floating-point rounding in the bounding pass.
+    }
+
+    // A convex clipped polygon becomes (0, 1, 2), (0, 2, 3), ... .
+    for (int fan = 1; fan + 1 < count; ++fan) {
+        ClipVertex triangle[3] = ClipVertex[3](polygon[0], polygon[fan], polygon[fan + 1]);
+        vec4 screen[3];
+        for (int i = 0; i < 3; ++i) {
+            float reciprocalW = 1.0 / triangle[i].clip.w;
+            vec3 ndc = triangle[i].clip.xyz * reciprocalW;
+            screen[i] = vec4((ndc.xy * 0.5 + 0.5) * uExtent,
+                             ndc.z * 0.5 + 0.5, reciprocalW);
+        }
+
+        vec2 a = screen[0].xy;
+        vec2 b = screen[1].xy;
+        vec2 c = screen[2].xy;
+        float area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+        if (area <= 0.0) {
+            continue;
+        }
+
+        vec2 minimum = min(a, min(b, c)) / uExtent * 2.0 - 1.0;
+        vec2 maximum = max(a, max(b, c)) / uExtent * 2.0 - 1.0;
+        // Pad the candidate region by one pixel so fixed-function edge rules
+        // cannot omit a sample accepted by our fragment-shader edge test.
         vec2 padding = vec2(2.0) / uExtent;
         minimum = clamp(minimum - padding, vec2(-1.0), vec2(1.0));
         maximum = clamp(maximum + padding, vec2(-1.0), vec2(1.0));
-    }
-    if (any(greaterThanEqual(minimum, maximum))) {
-        return;
-    }
+        if (any(greaterThanEqual(minimum, maximum))) {
+            continue;
+        }
 
-    emitCorner(minimum);
-    emitCorner(vec2(maximum.x, minimum.y));
-    emitCorner(vec2(minimum.x, maximum.y));
-    emitCorner(maximum);
-    EndPrimitive();
+        // One right triangle covers the whole bounding rectangle. Three
+        // vertices per fan triangle keep geometry-shader output below the
+        // OpenGL 4.1 minimum total-output-components limit.
+        vec2 corners[3] = vec2[3](minimum,
+                                  vec2(2.0 * maximum.x - minimum.x, minimum.y),
+                                  vec2(minimum.x, 2.0 * maximum.y - minimum.y));
+        for (int corner = 0; corner < 3; ++corner) {
+            for (int i = 0; i < 3; ++i) {
+                gScreenAndInvW[i] = screen[i];
+                gWorld[i] = triangle[i].worldPosition;
+                gNormal[i] = triangle[i].normal;
+                gUv[i] = triangle[i].uv;
+            }
+            gl_Position = vec4(corners[corner], 0.0, 1.0);
+            EmitVertex();
+        }
+        EndPrimitive();
+    }
 }

@@ -3,7 +3,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -51,7 +50,7 @@ void GpuRenderer::resizeBackend() {
     }
 }
 
-void GpuRenderer::transformVertices(Mesh const& mesh, glm::mat4 const& transform, FrameState const& frame) {
+void GpuRenderer::transformVertices(Mesh const& mesh, FrameState const& frame) {
     auto const& indices = mesh.indices();
     size_t const outputBytes = indices.size() * sizeof(TransformedVertex);
     auto const& inputVao = mesh.gpuVertexArray();
@@ -88,18 +87,18 @@ void GpuRenderer::transformVertices(Mesh const& mesh, glm::mat4 const& transform
     }
 
     m_transformProgram->use();
-    m_transformProgram->setUniform("uMeshTransform", transform);
     m_transformProgram->setUniform("uModel", frame.model);
     m_transformProgram->setUniform("uModelViewProjection", frame.projection * frame.view * frame.model);
-    m_transformProgram->setUniform("uNodeNormalTransform", glm::transpose(glm::inverse(glm::mat3(transform))));
     m_transformProgram->setUniform("uNormalTransform", glm::transpose(glm::inverse(glm::mat3(frame.model))));
 
     m_transformFeedback.setBuffer(0, *m_transformedBuffer);
-    inputVao.bind();
     gfx::RHI::enableRasterizerDiscard(true);
+    inputVao.bind();
+
     m_transformFeedback.begin(gfx::RHI::Primitive::Triangles);
     gfx::RHI::drawIndexed(gfx::RHI::Primitive::Triangles, 0, static_cast<uint32_t>(indices.size()));
     gfx::TransformFeedback::end();
+
     gfx::RHI::enableRasterizerDiscard(false);
     gfx::TransformFeedback::unbind();
     gfx::VertexArray::unbind();
@@ -121,54 +120,34 @@ void GpuRenderer::setMaterial(PbrMaterial const& material) {
     m_rasterProgram->setUniform("uOcclusionStrength", material.occlusionStrength);
 }
 
-void GpuRenderer::render(std::vector<DrawItem> const& drawItems, FrameState const& frame) {
-    for (DrawItem const& drawItem : drawItems) {
-        auto const& indices = drawItem.mesh->indices();
-        if (indices.size() % 3 != 0) {
-            throw std::invalid_argument("Mesh indices must describe complete triangles");
-        }
-        if (indices.size() > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
-            throw std::runtime_error("Too many indices for the GPU vertex pass");
-        }
-        for (uint32_t index : indices) {
-            if (index >= drawItem.mesh->vertices().size()) {
-                throw std::invalid_argument("Mesh index references a missing vertex");
-            }
-        }
-    }
-
+void GpuRenderer::clear() {
     m_framebuffer->bind();
-    gfx::RHI::setViewport({static_cast<uint32_t>(m_extent.x), static_cast<uint32_t>(m_extent.y)});
-    gfx::RHI::enableCullFace(false);
-    gfx::RHI::enableDepthTest(true);
-    gfx::RHI::setDepthFunc(gfx::RHI::CompareFunc::Less);
     gfx::RHI::enableDepthWrite(true);
-    gfx::RHI::setClearColor({0.025f, 0.03f, 0.04f, 1.0f});
-    gfx::RHI::setClearDepth(1.0f);
+    gfx::RHI::setClearColor(m_backgroundColor);
     gfx::RHI::clear(true, true);
+    gfx::Framebuffer::unbind();
+}
 
-    glm::mat4 const viewProjection = frame.projection * frame.view;
-    glm::mat4 const inverseViewProjection = glm::inverse(viewProjection);
-    for (DrawItem const& drawItem : drawItems) {
-        transformVertices(*drawItem.mesh, drawItem.transform, frame);
+void GpuRenderer::render(DrawItem const& drawItem, FrameState const& frame) {
+    m_framebuffer->bind();
+    gfx::RHI::setViewport({m_extent.x, m_extent.y});
+    gfx::RHI::enableDepthTest(true);
 
-        m_rasterProgram->use();
-        m_rasterProgram->setUniform("uExtent", glm::vec2(frame.extent));
-        m_rasterProgram->setUniform("uViewProjection", viewProjection);
-        m_rasterProgram->setUniform("uInverseViewProjection", inverseViewProjection);
-        m_rasterProgram->setUniform("uCameraPosition", frame.cameraPosition);
-        m_rasterProgram->setUniform("uLightDirection", frame.directionalLight.transform.getFront());
-        m_rasterProgram->setUniform("uLightColor", frame.directionalLight.color);
-        m_rasterProgram->setUniform("uLightIntensity", frame.directionalLight.intensity);
-        setMaterial(*drawItem.material);
-        m_feedbackVao.bind();
-        m_transformFeedback.draw(gfx::RHI::Primitive::Triangles);
-        gfx::VertexArray::unbind();
-    }
+    transformVertices(*drawItem.mesh, frame);
+
+    m_rasterProgram->use();
+    m_rasterProgram->setUniform("uExtent", glm::vec2(frame.extent));
+    m_rasterProgram->setUniform("uCameraPosition", frame.cameraPosition);
+    m_rasterProgram->setUniform("uLightDirection", frame.directionalLight.transform.getFront());
+    m_rasterProgram->setUniform("uLightColor", frame.directionalLight.color);
+    m_rasterProgram->setUniform("uLightIntensity", frame.directionalLight.intensity);
+    setMaterial(*drawItem.material);
+    m_feedbackVao.bind();
+    m_transformFeedback.draw(gfx::RHI::Primitive::Triangles);
+    gfx::VertexArray::unbind();
 
     for (uint32_t unit = 0; unit < 5; ++unit) {
         gfx::Sampler::unbind(unit);
     }
     gfx::Framebuffer::unbind();
-    gfx::RHI::enableDepthTest(false);
 }

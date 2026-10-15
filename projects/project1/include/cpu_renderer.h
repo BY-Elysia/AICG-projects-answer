@@ -9,7 +9,11 @@ class CpuRenderer final : public Renderer {
 public:
     CpuRenderer(uint32_t width, uint32_t height);
 
-    void render(std::vector<DrawItem> const& drawItems, FrameState const& frame) override;
+    void clear() override;
+
+    void render(DrawItem const& drawItem, FrameState const& frame) override;
+
+    gfx::Texture2D const& outputTexture() const override;
 
 private:
     // Per-pixel linear HDR color before glTexSubImage2D upload.

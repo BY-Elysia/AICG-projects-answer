@@ -46,5 +46,8 @@ private:
 
     void renderFrame() override;
 
+    static void validateDrawItem(DrawItem const& drawItem);
+    static FrameState frameForDrawItem(FrameState frame, DrawItem const& drawItem);
+
     void renderUi();
 };

@@ -17,9 +17,9 @@
 
 struct UnifiedTexture2D {
     // Texture storage and sampling state for the two rasterizers.
-    std::unique_ptr<CpuTexture2D> cpuTexture;
-    CpuSampler cpuSampler;
-    std::unique_ptr<gfx::Texture2D> gpuTexture;
+    std::shared_ptr<CpuTexture2D> cpuTexture;
+    std::shared_ptr<CpuSampler> cpuSampler;
+    std::shared_ptr<gfx::Texture2D> gpuTexture;
     std::shared_ptr<gfx::Sampler> gpuSampler;
 };
 
@@ -46,8 +46,8 @@ struct PbrMaterial {
 struct DrawItem {
     Mesh const* mesh = nullptr;
     PbrMaterial const* material = nullptr;
-    // World transform accumulated through the scene's node hierarchy.
-    glm::mat4 transform{1.0f};
+    // Mesh-local to scene-space transform accumulated through the node hierarchy.
+    glm::mat4 meshToScene{1.0f};
 };
 
 // Shared vertex-stage layout, matching the GPU's interleaved transform feedback output.
@@ -65,8 +65,8 @@ static_assert(offsetof(TransformedVertex, normal) == 28);
 static_assert(offsetof(TransformedVertex, uv) == 40);
 
 struct FrameState {
-    // Shared per-frame input. Both rasterizers use the same camera and light for comparison.
-    // Optional scene-wide transform applied after every node's world transform.
+    // Rendering inputs shared by both rasterizers; model is specific to the current draw item.
+    // Mesh-to-world transform for the draw item currently being rendered.
     glm::mat4 model{1.0f};
     // Camera world-to-view transform.
     glm::mat4 view{1.0f};
@@ -77,5 +77,5 @@ struct FrameState {
     // Keeps transform, color, and intensity as one component.
     DirectionalLight directionalLight;
     // Raster target size in physical framebuffer pixels.
-    glm::ivec2 extent{1280, 720};
+    glm::uvec2 extent{1280, 720};
 };

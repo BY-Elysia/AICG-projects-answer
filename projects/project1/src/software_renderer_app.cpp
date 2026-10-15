@@ -1,6 +1,8 @@
 #include "software_renderer_app.h"
 
+#include <cstdint>
 #include <format>
+#include <limits>
 #include <stdexcept>
 #include <common/event/event_dispatcher.h>
 #include <common/event/keyboard_event.h>
@@ -79,13 +81,33 @@ SoftwareRendererApp::~SoftwareRendererApp() {
     ImGui::DestroyContext();
 }
 
+void SoftwareRendererApp::validateDrawItem(DrawItem const& drawItem) {
+    auto const& indices = drawItem.mesh->indices();
+    if (indices.size() % 3 != 0) {
+        throw std::invalid_argument("Mesh indices must describe complete triangles");
+    }
+    if (indices.size() > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
+        throw std::runtime_error("Too many indices for the GPU vertex pass");
+    }
+    for (uint32_t index : indices) {
+        if (index >= drawItem.mesh->vertices().size()) {
+            throw std::invalid_argument("Mesh index references a missing vertex");
+        }
+    }
+}
+
+FrameState SoftwareRendererApp::frameForDrawItem(FrameState frame, DrawItem const& drawItem) {
+    frame.model = frame.model * drawItem.meshToScene;
+    return frame;
+}
+
 void SoftwareRendererApp::handleEvent(Event& event) {
     EventDispatcher dispatcher{event};
     dispatcher.dispatch<WindowFramebufferResizeEvent>([this](WindowFramebufferResizeEvent& resizeEvent) {
         if (resizeEvent.getWidth() == 0 || resizeEvent.getHeight() == 0) {
             return false;
         }
-        glm::ivec2 const extent{static_cast<int>(resizeEvent.getWidth()), static_cast<int>(resizeEvent.getHeight())};
+        glm::uvec2 const extent{resizeEvent.getWidth(), resizeEvent.getHeight()};
         m_cpuRenderer->resize(extent);
         m_gpuRenderer->resize(extent);
         m_camera.aspect = m_window.aspectRatio();
@@ -114,7 +136,7 @@ void SoftwareRendererApp::renderFrame() {
     m_window.setTitle(std::format("Software Renderer | {:.1f} FPS", fps));
 
     // render the scene
-    FrameState frame{
+    FrameState sceneFrame{
         .model = glm::rotate(glm::mat4(1.0f), getTotalTime() * kModelRotateSpeed, glm::vec3(0.0f, 1.0f, 0.0f)),
         .view = m_camera.getViewMatrix(),
         .projection = m_camera.getProjectionMatrix(),
@@ -125,15 +147,20 @@ void SoftwareRendererApp::renderFrame() {
 
     Renderer& renderer = m_renderBackend == RenderBackend::Cpu ? static_cast<Renderer&>(*m_cpuRenderer)
                                                                : static_cast<Renderer&>(*m_gpuRenderer);
-    renderer.render(m_scene->drawItems(), frame);
-    auto const& output = renderer.outputTexture();
+    renderer.clear();
+    for (DrawItem const& drawItem : m_scene->drawItems()) {
+        validateDrawItem(drawItem);
+        renderer.render(drawItem, frameForDrawItem(sceneFrame, drawItem));
+    }
 
     // display the render result on the screen
     gfx::RHI::enableDepthTest(false);
     gfx::RHI::setViewport({0, 0, width, height});
 
     m_displayProgram->use();
+
     auto const hdrTextureUnit = m_displayProgram->getTextureBinding("uHdrColor");
+    auto const& output = renderer.outputTexture();
     output.bind(hdrTextureUnit);
     m_displaySampler.bind(hdrTextureUnit);
 

@@ -64,10 +64,10 @@ struct MeshGpuCache {
 
 struct Mesh {
     Mesh() = default;
+
     Mesh(Mesh&&) noexcept = default;
+
     Mesh& operator=(Mesh&&) noexcept = default;
-    Mesh(Mesh const&) = delete;
-    Mesh& operator=(Mesh const&) = delete;
 
     std::vector<Vertex> const& vertices() const {
         return m_vertices;
