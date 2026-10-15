@@ -5,8 +5,8 @@ static RayTracer::Config parseConfig(int argc, char* argv[]) {
     RayTracer::Config config{
         .windowConfig{
             .title = "Ray Tracer",
-            .width = 640,
-            .height = 360,
+            .width = 1280,
+            .height = 720,
             .vsync = false,
 
             .resizable = false,
