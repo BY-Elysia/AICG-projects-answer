@@ -32,8 +32,8 @@ struct ScreenTriangle {
 constexpr size_t kMaxClippedPolygonVertices = 3 + 6;
 
 // Transform each unique mesh vertex once; indexed triangles reuse these results later.
-static std::vector<TransformedVertex> transformVertices(Mesh const& mesh, FrameState const& frame) {
-    std::vector<TransformedVertex> vertices;
+static std::vector<ClipVertex> transformVertices(Mesh const& mesh, FrameState const& frame) {
+    std::vector<ClipVertex> vertices;
     vertices.reserve(mesh.vertices().size());
 
     // The app has already combined the scene and node transforms in frame.model.
@@ -59,21 +59,20 @@ static std::vector<TransformedVertex> transformVertices(Mesh const& mesh, FrameS
 // Keep the half-space where dot(plane, vertex.clip) >= 0; the other side is outside.
 // polygon and count are updated in place; scratch storage keeps input edges intact.
 static void
-clipAgainst(std::array<TransformedVertex, kMaxClippedPolygonVertices>& polygon, size_t& count, glm::vec4 const& plane) {
-
-    // Perform Sutherland-Hodgeman algorithm to clip the triangle with a single plane
-    // Hint: use an additional array clipped to storge the clipped results
-    // Hint: copy the clipped results to polygon as the output
+clipAgainst(std::array<ClipVertex, kMaxClippedPolygonVertices>& polygon, size_t& count, glm::vec4 const& plane) {
+    // TODO: Perform Sutherland-Hodgeman algorithm to clip the triangle with a single plane
+    // Hint: Use an additional array clipped to storge the clipped results
+    // Hint: Copy the clipped results to polygon as the output
 
     /**************************************** Todo Begin *****************************************/
     if (count != 0) {
-        std::array<TransformedVertex, kMaxClippedPolygonVertices> clipped;
+        std::array<ClipVertex, kMaxClippedPolygonVertices> clipped;
         size_t clippedCount = 0;
         // Walk every edge, including the closing edge from the last vertex to the first.
-        TransformedVertex previous = polygon[count - 1];
+        ClipVertex previous = polygon[count - 1];
         float previousSide = glm::dot(plane, previous.clip);
         for (size_t i = 0; i < count; ++i) {
-            TransformedVertex const& current = polygon[i];
+            ClipVertex const& current = polygon[i];
             float const currentSide = glm::dot(plane, current.clip);
             bool const currentInside = currentSide >= 0.0f;
             bool const previousInside = previousSide >= 0.0f;
@@ -107,9 +106,8 @@ clipAgainst(std::array<TransformedVertex, kMaxClippedPolygonVertices>& polygon, 
 }
 
 // Assemble indexed clip-space vertices into clipped, front-facing screen triangles.
-static std::vector<ScreenTriangle> buildScreenTriangles(std::vector<TransformedVertex> const& vertices,
-                                                        std::vector<uint32_t> const& indices,
-                                                        glm::uvec2 extent) {
+static std::vector<ScreenTriangle>
+buildScreenTriangles(std::vector<ClipVertex> const& vertices, std::vector<uint32_t> const& indices, glm::uvec2 extent) {
     std::vector<ScreenTriangle> result;
     result.reserve(indices.size() / 3);
 
@@ -117,7 +115,7 @@ static std::vector<ScreenTriangle> buildScreenTriangles(std::vector<TransformedV
     for (size_t index = 0; index < indices.size(); index += 3) {
         // Fixed storage covers the worst-case clipped polygon. Only the first
         // count entries are valid; initially they are the source triangle.
-        std::array<TransformedVertex, kMaxClippedPolygonVertices> polygon;
+        std::array<ClipVertex, kMaxClippedPolygonVertices> polygon;
         size_t count = 3;
         for (int corner = 0; corner < 3; ++corner) {
             auto const vertexIndex = indices[index + corner];
@@ -129,9 +127,6 @@ static std::vector<ScreenTriangle> buildScreenTriangles(std::vector<TransformedV
         // OpenGL's homogeneous clip volume is -w <= x, y, z <= w.
         // A nonnegative result means the vertex is inside the corresponding plane.
         // Clipping may discard the triangle or add intersection vertices.
-
-        /************************************** Todo Begin ***************************************/
-
         clipAgainst(polygon, count, {1.0f, 0.0f, 0.0f, 1.0f});  // left: x + w >= 0
         clipAgainst(polygon, count, {-1.0f, 0.0f, 0.0f, 1.0f}); // right: w - x >= 0
         clipAgainst(polygon, count, {0.0f, 1.0f, 0.0f, 1.0f});  // bottom: y + w >= 0
@@ -139,14 +134,12 @@ static std::vector<ScreenTriangle> buildScreenTriangles(std::vector<TransformedV
         clipAgainst(polygon, count, {0.0f, 0.0f, 1.0f, 1.0f});  // near: z + w >= 0
         clipAgainst(polygon, count, {0.0f, 0.0f, -1.0f, 1.0f}); // far: w - z >= 0
 
-        /*************************************** Todo End ****************************************/
-
         // TODO: For each clipped triangle, calculate the following attribute for its screen triangle
 
         // The clipped polygon is convex. Fan it out as (0, 1, 2), (0, 2, 3), ...;
         // fewer than three surviving vertices naturally produce no triangles.
         for (size_t triangle = 1; triangle + 1 < count; ++triangle) {
-            TransformedVertex const clipped[] = {polygon[0], polygon[triangle], polygon[triangle + 1]};
+            ClipVertex const clipped[] = {polygon[0], polygon[triangle], polygon[triangle + 1]};
             ScreenTriangle output{};
 
             /************************************ Todo Begin *************************************/

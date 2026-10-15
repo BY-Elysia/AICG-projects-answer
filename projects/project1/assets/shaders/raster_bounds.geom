@@ -28,13 +28,26 @@ struct ClipVertex {
     vec2 uv;
 };
 
+struct ScreenVertex {
+    // xy is pixel position, z is depth, and w is 1 / clip-space w.
+    vec4 screenAndInvW;
+    vec3 worldPosition;
+    vec3 normal;
+    vec2 uv;
+};
+
 // A triangle clipped by six planes has at most nine vertices. Keep the side
 // where dot(plane, vertex.clip) >= 0, just as the CPU clipAgainst() does.
-int clipAgainst(ClipVertex polygon[9], int count, vec4 plane, out ClipVertex clipped[9]) {
+int clipAgainst(inout ClipVertex polygon[9], int count, vec4 plane) {
+    // TODO: Clip the polygon against this plane with Sutherland-Hodgman.
+    // Hint: visit every edge, including the edge from the last vertex to the first;
+    // emit a crossing vertex when the endpoints are on opposite sides.
+    /*************************************** TODO BEGIN ******************************************/
     if (count == 0) {
         return 0;
     }
 
+    ClipVertex clipped[9];
     int clippedCount = 0;
     ClipVertex previous = polygon[count - 1];
     float previousSide = dot(plane, previous.clip);
@@ -59,12 +72,16 @@ int clipAgainst(ClipVertex polygon[9], int count, vec4 plane, out ClipVertex cli
         previous = current;
         previousSide = currentSide;
     }
+    for (int i = 0; i < clippedCount; ++i) {
+        polygon[i] = clipped[i];
+    }
     return clippedCount;
+    /**************************************** TODO END *******************************************/
 }
 
 void main() {
     ClipVertex polygon[9];
-    ClipVertex scratch[9];
+    int count = 3;
     for (int i = 0; i < 3; ++i) {
         polygon[i].clip = vertexData[i].clip;
         polygon[i].worldPosition = vertexData[i].worldPosition;
@@ -73,37 +90,48 @@ void main() {
     }
 
     // OpenGL's homogeneous clip volume is -w <= x, y, z <= w.
-    vec4 planes[6] = vec4[6](vec4(1, 0, 0, 1), vec4(-1, 0, 0, 1),
-                             vec4(0, 1, 0, 1), vec4(0, -1, 0, 1),
-                             vec4(0, 0, 1, 1), vec4(0, 0, -1, 1));
-    int count = 3;
-    for (int plane = 0; plane < 6; ++plane) {
-        int clippedCount = clipAgainst(polygon, count, planes[plane], scratch);
-        count = clippedCount;
-        for (int i = 0; i < count; ++i) {
-            polygon[i] = scratch[i];
-        }
-    }
+
+    // Clip the source triangle against all six homogeneous clip planes.
+    count = clipAgainst(polygon, count, vec4(1, 0, 0, 1));  // left: x + w >= 0
+    count = clipAgainst(polygon, count, vec4(-1, 0, 0, 1)); // right: w - x >= 0
+    count = clipAgainst(polygon, count, vec4(0, 1, 0, 1));  // bottom: y + w >= 0
+    count = clipAgainst(polygon, count, vec4(0, -1, 0, 1)); // top: w - y >= 0
+    count = clipAgainst(polygon, count, vec4(0, 0, 1, 1));  // near: z + w >= 0
+    count = clipAgainst(polygon, count, vec4(0, 0, -1, 1)); // far: w - z >= 0
 
     // A convex clipped polygon becomes (0, 1, 2), (0, 2, 3), ... .
     for (int fan = 1; fan + 1 < count; ++fan) {
         ClipVertex triangle[3] = ClipVertex[3](polygon[0], polygon[fan], polygon[fan + 1]);
-        vec4 screen[3];
+        ScreenVertex screenTriangle[3];
+        // TODO: Convert each clip-space vertex to a ScreenVertex.
+        // Hint: divide xyz by clip.w, map NDC xy to pixels and z to [0, 1],
+        // and retain 1 / clip.w for perspective-correct interpolation.
+        /*************************************** TODO BEGIN ******************************************/
         for (int i = 0; i < 3; ++i) {
             float reciprocalW = 1.0 / triangle[i].clip.w;
             vec3 ndc = triangle[i].clip.xyz * reciprocalW;
-            screen[i] = vec4((ndc.xy * 0.5 + 0.5) * uExtent,
-                             ndc.z * 0.5 + 0.5, reciprocalW);
+            screenTriangle[i].screenAndInvW = vec4((ndc.xy * 0.5 + 0.5) * uExtent,
+                                                   ndc.z * 0.5 + 0.5, reciprocalW);
+            screenTriangle[i].worldPosition = triangle[i].worldPosition;
+            screenTriangle[i].normal = triangle[i].normal;
+            screenTriangle[i].uv = triangle[i].uv;
         }
 
-        vec2 a = screen[0].xy;
-        vec2 b = screen[1].xy;
-        vec2 c = screen[2].xy;
+        vec2 a = screenTriangle[0].screenAndInvW.xy;
+        vec2 b = screenTriangle[1].screenAndInvW.xy;
+        vec2 c = screenTriangle[2].screenAndInvW.xy;
+        // Reject back-facing and zero-area screen triangles.
         float area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
         if (area <= 0.0) {
             continue;
         }
+        /**************************************** TODO END *******************************************/
 
+        // TODO: Bound the candidate pixels and emit a primitive covering them.
+        // Hint: Convert the screen-space bounds back to NDC; the fragment shader
+        //       will perform the exact per-pixel triangle coverage test.
+        // Hint: Use EmitVertex/EmitPrimitive
+        /*************************************** TODO BEGIN ******************************************/
         vec2 minimum = min(a, min(b, c)) / uExtent * 2.0 - 1.0;
         vec2 maximum = max(a, max(b, c)) / uExtent * 2.0 - 1.0;
         // Pad the candidate region by one pixel so fixed-function edge rules
@@ -123,14 +151,15 @@ void main() {
                                   vec2(minimum.x, 2.0 * maximum.y - minimum.y));
         for (int corner = 0; corner < 3; ++corner) {
             for (int i = 0; i < 3; ++i) {
-                gScreenAndInvW[i] = screen[i];
-                gWorld[i] = triangle[i].worldPosition;
-                gNormal[i] = triangle[i].normal;
-                gUv[i] = triangle[i].uv;
+                gScreenAndInvW[i] = screenTriangle[i].screenAndInvW;
+                gWorld[i] = screenTriangle[i].worldPosition;
+                gNormal[i] = screenTriangle[i].normal;
+                gUv[i] = screenTriangle[i].uv;
             }
             gl_Position = vec4(corners[corner], 0.0, 1.0);
             EmitVertex();
         }
         EndPrimitive();
+        /**************************************** TODO END *******************************************/
     }
 }

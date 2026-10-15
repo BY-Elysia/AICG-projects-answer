@@ -52,7 +52,7 @@ void GpuRenderer::resizeBackend() {
 
 void GpuRenderer::transformVertices(Mesh const& mesh, FrameState const& frame) {
     auto const& indices = mesh.indices();
-    size_t const outputBytes = indices.size() * sizeof(TransformedVertex);
+    size_t const outputBytes = indices.size() * sizeof(ClipVertex);
     auto const& inputVao = mesh.gpuVertexArray();
     if (!m_transformedBuffer) {
         m_transformedBuffer = std::make_unique<gfx::Buffer>(
@@ -61,26 +61,26 @@ void GpuRenderer::transformVertices(Mesh const& mesh, FrameState const& frame) {
                                         {0,
                                          4,
                                          gfx::VertexArray::DataType::Float32,
-                                         sizeof(TransformedVertex),
-                                         static_cast<intptr_t>(offsetof(TransformedVertex, clip))});
+                                         sizeof(ClipVertex),
+                                         static_cast<intptr_t>(offsetof(ClipVertex, clip))});
         m_feedbackVao.setFloatAttribute(*m_transformedBuffer,
                                         {1,
                                          3,
                                          gfx::VertexArray::DataType::Float32,
-                                         sizeof(TransformedVertex),
-                                         static_cast<intptr_t>(offsetof(TransformedVertex, worldPosition))});
+                                         sizeof(ClipVertex),
+                                         static_cast<intptr_t>(offsetof(ClipVertex, worldPosition))});
         m_feedbackVao.setFloatAttribute(*m_transformedBuffer,
                                         {2,
                                          3,
                                          gfx::VertexArray::DataType::Float32,
-                                         sizeof(TransformedVertex),
-                                         static_cast<intptr_t>(offsetof(TransformedVertex, normal))});
+                                         sizeof(ClipVertex),
+                                         static_cast<intptr_t>(offsetof(ClipVertex, normal))});
         m_feedbackVao.setFloatAttribute(*m_transformedBuffer,
                                         {3,
                                          2,
                                          gfx::VertexArray::DataType::Float32,
-                                         sizeof(TransformedVertex),
-                                         static_cast<intptr_t>(offsetof(TransformedVertex, uv))});
+                                         sizeof(ClipVertex),
+                                         static_cast<intptr_t>(offsetof(ClipVertex, uv))});
     }
     else if (m_transformedBuffer->getSize() != outputBytes) {
         m_transformedBuffer->resize(outputBytes, gfx::Buffer::Usage::DynamicDraw);

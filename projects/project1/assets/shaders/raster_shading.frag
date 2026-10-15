@@ -35,7 +35,7 @@ vec3 srgbToLinear(vec3 value) {
 
 // Matches pbrShade() in pbr_shading.h. Explicit level-zero sampling avoids fragment
 // derivatives changing filtering relative to the CPU backend.
-vec3 shade(vec3 worldPosition, vec3 normal, vec3 tangent, vec3 bitangent, vec2 uv) {
+vec3 pbrShade(vec3 worldPosition, vec3 normal, vec3 tangent, vec3 bitangent, vec2 uv) {
     const float kPi = 3.14159265358979323846;
     // Multiply the material factor by the base-color texel. Only color channels
     // need sRGB decoding; metallic, roughness, and normal textures are linear data.
@@ -109,12 +109,17 @@ vec3 shade(vec3 worldPosition, vec3 normal, vec3 tangent, vec3 bitangent, vec2 u
 }
 
 void main() {
-    // Evaluate the same three 2D edge functions as rasterizeTriangles() on the
-    // CPU. gl_FragCoord.xy is the pixel center in framebuffer coordinates.
+    vec2 p = gl_FragCoord.xy;
     vec2 a = gScreenAndInvW[0].xy;
     vec2 b = gScreenAndInvW[1].xy;
     vec2 c = gScreenAndInvW[2].xy;
-    vec2 p = gl_FragCoord.xy;
+    float area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+
+    // TODO: Determine whether the pixel center lies inside the screen triangle.
+    // Evaluate the same three 2D edge functions as rasterizeTriangles() on the
+    // CPU. gl_FragCoord.xy is the pixel center in framebuffer coordinates.
+    // Hint: Use `discard` if the pixel is not inside the triangle
+    /*************************************** TODO BEGIN ******************************************/
     vec2 edge0 = p - b;
     vec2 edge1 = p - c;
     vec2 edge2 = p - a;
@@ -124,26 +129,30 @@ void main() {
     if (any(lessThan(barycentric, vec3(0.0)))) {
         discard;
     }
-    float area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
     barycentric /= area;
+    /**************************************** TODO END *******************************************/
 
-    // Window-space depth is affine in the screen-space barycentrics. Hardware
-    // GL_LESS performs the same visibility test as the CPU depth buffer.
+    // TODO: Write the pixel depth from screen-space barycentric coordinates.
+    // Window-space depth is affine in the screen-space barycentrics.
+    // Hint: write the depth value into gl_FragDepth
+    /*************************************** TODO BEGIN ******************************************/
     gl_FragDepth = dot(barycentric, vec3(gScreenAndInvW[0].z,
-                                        gScreenAndInvW[1].z,
-                                        gScreenAndInvW[2].z));
+                                         gScreenAndInvW[1].z,
+                                         gScreenAndInvW[2].z));
+    /**************************************** TODO END *******************************************/
 
-    // Only attributes need the 1/w correction. CPU and GPU now interpolate
-    // from the same clipped triangle rather than intersecting a world-space ray.
+    // TODO: Calculate the attributes needed to shade the pixel with pbrShade.
+    // Hint: Use perspective-correct weights to interpolate world position, normal, and uv.
+    // Hint: Derive tangent and bitangent from world-position and UV edges;
+    //       keep the fallback axes when the UVs are degenerate.
+    /*************************************** TODO BEGIN ******************************************/
     vec3 corrected = barycentric * vec3(gScreenAndInvW[0].w,
-                                       gScreenAndInvW[1].w,
-                                       gScreenAndInvW[2].w);
+                                        gScreenAndInvW[1].w,
+                                        gScreenAndInvW[2].w);
     vec3 weights = corrected / (corrected.x + corrected.y + corrected.z);
     vec3 worldPosition = weights.x * gWorld[0] + weights.y * gWorld[1] + weights.z * gWorld[2];
     vec3 normal = weights.x * gNormal[0] + weights.y * gNormal[1] + weights.z * gNormal[2];
     vec2 uv = weights.x * gUv[0] + weights.y * gUv[1] + weights.z * gUv[2];
-    // Solve the world-space tangent and bitangent from position and UV edges.
-    // Degenerate UVs cannot define this basis, so retain the fallback axes.
     vec2 deltaUv1 = gUv[1] - gUv[0];
     vec2 deltaUv2 = gUv[2] - gUv[0];
     float uvDeterminant = deltaUv1.x * deltaUv2.y - deltaUv1.y * deltaUv2.x;
@@ -155,6 +164,7 @@ void main() {
         tangent = normalize((edge1 * deltaUv2.y - edge2 * deltaUv1.y) / uvDeterminant);
         bitangent = normalize((-edge1 * deltaUv2.x + edge2 * deltaUv1.x) / uvDeterminant);
     }
-    // Store linear HDR color; the later display pass performs tone mapping.
-    outColor = vec4(shade(worldPosition, normal, tangent, bitangent, uv), 1.0);
+    /**************************************** TODO END *******************************************/
+
+    outColor = vec4(pbrShade(worldPosition, normal, tangent, bitangent, uv), 1.0);
 }

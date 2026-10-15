@@ -51,18 +51,18 @@ struct DrawItem {
 };
 
 // Shared vertex-stage layout, matching the GPU's interleaved transform feedback output.
-struct TransformedVertex {
+struct ClipVertex {
     glm::vec4 clip{0.0f};
     glm::vec3 worldPosition{0.0f};
     glm::vec3 normal{0.0f, 1.0f, 0.0f};
     glm::vec2 uv{0.0f};
 };
 
-static_assert(sizeof(TransformedVertex) == 48);
-static_assert(offsetof(TransformedVertex, clip) == 0);
-static_assert(offsetof(TransformedVertex, worldPosition) == 16);
-static_assert(offsetof(TransformedVertex, normal) == 28);
-static_assert(offsetof(TransformedVertex, uv) == 40);
+static_assert(sizeof(ClipVertex) == 48);
+static_assert(offsetof(ClipVertex, clip) == 0);
+static_assert(offsetof(ClipVertex, worldPosition) == 16);
+static_assert(offsetof(ClipVertex, normal) == 28);
+static_assert(offsetof(ClipVertex, uv) == 40);
 
 struct FrameState {
     // Rendering inputs shared by both rasterizers; model is specific to the current draw item.
