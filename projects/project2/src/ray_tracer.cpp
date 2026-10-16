@@ -544,8 +544,9 @@ void RayTracer::createPrimitiveBuffer(std::vector<Sphere> const& spheres,
         primitiveData.data());
 
     std::vector<float> bvhData;
-    bvhData.reserve(bvh.nodes().size() * 9);
+    bvhData.reserve(bvh.nodes().size() * 8);
     for (auto const& node : bvh.nodes()) {
+        // Two RGBA texels: min.xyz/max.x, then max.yz/first/second.
         bvhData.insert(bvhData.end(),
                        {node.bounds.min.x,
                         node.bounds.min.y,
@@ -553,17 +554,16 @@ void RayTracer::createPrimitiveBuffer(std::vector<Sphere> const& spheres,
                         node.bounds.max.x,
                         node.bounds.max.y,
                         node.bounds.max.z,
-                        static_cast<float>(node.type),
                         static_cast<float>(node.first),
                         static_cast<float>(node.second)});
     }
-    auto const bvhHeight = padBuffer(bvhData, 3);
+    auto const bvhHeight = padBuffer(bvhData, 4);
     m_bvhBuffer = std::make_unique<gfx::Texture2D>(
         gfx::Texture2D::Specification{
             .width = kBufferWidth,
             .height = bvhHeight,
-            .format = gfx::Texture::Format::RGB32F,
-            .pixelFormat = gfx::Texture::ExternalFormat::RGB,
+            .format = gfx::Texture::Format::RGBA32F,
+            .pixelFormat = gfx::Texture::ExternalFormat::RGBA,
             .pixelType = gfx::Texture::PixelType::Float
         },
         bvhData.data());

@@ -52,7 +52,7 @@ int BVH::build(size_t begin, size_t end, size_t depth) {
     // Match the reference's one-primitive leaves and degenerate-centroid leaves.
     // Cap depth so the shader's fixed 64-entry traversal stack cannot overflow.
     if (count == 1 || min == max || depth >= 64) {
-        m_nodes[nodeIndex] = {bounds, NodeType::Leaf, static_cast<int>(begin), static_cast<int>(count)};
+        m_nodes[nodeIndex] = {bounds, static_cast<int>(begin), -static_cast<int>(count)};
         return nodeIndex;
     }
 
@@ -119,6 +119,6 @@ int BVH::build(size_t begin, size_t end, size_t depth) {
 
     auto const left = build(begin, middle, depth + 1);
     auto const right = build(middle, end, depth + 1);
-    m_nodes[nodeIndex] = {bounds, NodeType::Interior, left, right};
+    m_nodes[nodeIndex] = {bounds, left, right};
     return nodeIndex;
 }

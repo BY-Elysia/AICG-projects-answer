@@ -11,13 +11,16 @@
 
 class BVH {
 public:
-    enum class NodeType : int { Interior = 0, Leaf = 1 };
-
     struct Node {
         AABB bounds;
-        NodeType type{NodeType::Leaf};
+        // Interior: first/second are left/right child node indices (second >= 0).
+        // Leaf: first is the first primitive index; second is the negative primitive count.
         int first{0};
         int second{0};
+
+        bool isLeaf() const noexcept {
+            return second < 0;
+        }
     };
 
     BVH(std::vector<Sphere> const& spheres,

@@ -11,9 +11,6 @@ const int DIELECTRIC_MATERIAL = 2;
 const int SPHERE_SHAPE = 0;
 const int TRIANGLE_SHAPE = 1;
 
-const int BVH_INTERIOR_NODE = 0;
-const int BVH_LEAF_NODE = 1;
-
 const int DATA_BUFFER_WIDTH = 2048;
 
 const float INFINITY = 10e10f;
@@ -86,9 +83,10 @@ struct Interaction {
 
 struct BVHNode {
     AABB box;
-    int nodeType;
-    int firstVal;  // leftChild / firstChildIndex
-    int secondVal; // rightChild / nPrimitives
+    // Interior: first/second are left/right child node indices (second >= 0).
+    // Leaf: first is the first primitive index; second is the negative primitive count.
+    int first;
+    int second;
 };
 
 uniform sampler2D RTResult;
@@ -333,7 +331,7 @@ void getTriangleData(sampler2D data, inout TriangleIndex idx, out Triangle trian
  *     idx : index of data
  *     triIdx: store the data
  * Return: the get primitive data
- * Usage: getPrimitiveData(primitiveBuffer, BVHNode.firstVal, primitive);
+ * Usage: getPrimitiveData(primitiveBuffer, BVHNode.first, primitive);
  */
 void getPrimitiveData(highp isampler2D data, int idx, out Primitive primitive);
 
@@ -344,7 +342,7 @@ void getPrimitiveData(highp isampler2D data, int idx, out Primitive primitive);
  *     idx : index of data
  *     triIdx: store the data
  * Return: the get BVHNode data
- * Usage: getBVHNodeData(bvh, BVHNode.firstVal or BVHNode.secondVal , node)
+ * Usage: getBVHNodeData(bvh, BVHNode.first or BVHNode.second , node)
  */
 void getBVHNodeData(highp sampler2D data, int idx, out BVHNode node);
 
@@ -504,10 +502,10 @@ bool intersect(inout Ray ray, inout Interaction isect) {
         }
         getBVHNodeData(bvh, currentNodeIndex, node);
         if (intersectAABB(ray, node.box, invDir)) {
-            if (node.nodeType == BVH_LEAF_NODE) {
-                int firstIndex = node.firstVal;
-                int primitiveCount = node.secondVal;
-                if (firstIndex < 0 || primitiveCount < 0 ||
+            if (node.second < 0) {
+                int firstIndex = node.first;
+                int primitiveCount = -node.second;
+                if (firstIndex < 0 || primitiveCount <= 0 ||
                     firstIndex + primitiveCount > nPrimitives) {
                     break;
                 }
@@ -523,16 +521,14 @@ bool intersect(inout Ray ray, inout Interaction isect) {
                     break;
                 }
                 currentNodeIndex = nodesToVisit[--toVisitOffset];
-            } else if (node.nodeType == BVH_INTERIOR_NODE) {
-                int leftChild = node.firstVal;
-                int rightChild = node.secondVal;
+            } else {
+                int leftChild = node.first;
+                int rightChild = node.second;
                 if (toVisitOffset >= 64) {
                     break;
                 }
                 nodesToVisit[toVisitOffset++] = rightChild;
                 currentNodeIndex = leftChild;
-            } else {
-                break;
             }
         } else {
             if (toVisitOffset == 0) {
@@ -921,15 +917,12 @@ void getPrimitiveData(highp isampler2D data, int idx, out Primitive primitive) {
 }
 
 void getBVHNodeData(highp sampler2D data, int idx, out BVHNode node) {
-    vec3 v[3];
-    int vid = idx * 3;
-    for (int i = 0; i < 3; ++i) {
-        // warning: will this function work properly with highp sampler2D -> sampler2D ?
-        getVec3FromTexture(data, getSampleIdx(data, vid + i), v[i]);
-    }
-    node.box.pMin = v[0];
-    node.box.pMax = v[1];
-    node.nodeType = int(v[2].x);
-    node.firstVal = int(v[2].y);
-    node.secondVal = int(v[2].z);
+    vec4 firstTexel;
+    vec4 secondTexel;
+    getVec4FromTexture(data, getSampleIdx(data, idx * 2), firstTexel);
+    getVec4FromTexture(data, getSampleIdx(data, idx * 2 + 1), secondTexel);
+    node.box.pMin = firstTexel.xyz;
+    node.box.pMax = vec3(firstTexel.w, secondTexel.xy);
+    node.first = int(secondTexel.z);
+    node.second = int(secondTexel.w);
 }
