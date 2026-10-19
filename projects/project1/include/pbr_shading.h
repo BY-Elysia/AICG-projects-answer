@@ -14,8 +14,6 @@ inline glm::vec3 pbrShade(PbrMaterial const& material,
                           glm::vec3 const& tangent,
                           glm::vec3 const& bitangent,
                           glm::vec2 const& uv) {
-    constexpr float kPi = std::numbers::pi_v<float>;
-
     // Read base color in linear space; metallic-roughness and normal maps remain linear data.
     // DamagedHelmet declares the default glTF LINEAR minification filter instead of a mipmap
     // filter, so every material map below samples only level zero, matching the GPU path.
@@ -60,7 +58,7 @@ inline glm::vec3 pbrShade(PbrMaterial const& material,
     float const alphaRoughness = roughness * roughness;
     float const alphaSquared = alphaRoughness * alphaRoughness;
     float const denominator = nDotH * nDotH * (alphaSquared - 1.0f) + 1.0f;
-    float const distribution = alphaSquared / std::max(kPi * denominator * denominator, 1e-5f);
+    float const distribution = alphaSquared / std::max(std::numbers::pi_v<float> * denominator * denominator, 1e-5f);
 
     // Separable Smith joint masking-shadowing term.
     float const attenuationL = 2.0f * nDotL / (nDotL + std::sqrt(alphaSquared + (1.0f - alphaSquared) * nDotL * nDotL));
@@ -71,7 +69,8 @@ inline glm::vec3 pbrShade(PbrMaterial const& material,
     glm::vec3 const fresnel = f0 + (glm::vec3(1.0f) - f0) * std::pow(1.0f - vDotH, 5.0f);
 
     glm::vec3 const specular = fresnel * distribution * geometry / std::max(4.0f * nDotL * nDotV, 1e-4f);
-    glm::vec3 const diffuse = (glm::vec3(1.0f) - fresnel) * (1.0f - metallic) * glm::vec3(baseColor) / kPi;
+    glm::vec3 const diffuse =
+        (glm::vec3(1.0f) - fresnel) * (1.0f - metallic) * glm::vec3(baseColor) / std::numbers::pi_v<float>;
 
     glm::vec3 color = (diffuse + specular) * frame.directionalLight.color * frame.directionalLight.intensity * nDotL;
 
