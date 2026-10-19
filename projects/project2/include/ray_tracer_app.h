@@ -26,7 +26,6 @@ private:
     std::unique_ptr<Model> m_lucy;
     std::vector<Sphere> m_spheres;
     std::vector<Material> m_sphereMaterials;
-    std::shared_ptr<RayTracer::Skybox const> m_skybox;
 
     int m_renderSceneIndex{0};
     int m_activeSceneIndex{-1};
@@ -66,8 +65,6 @@ private:
                            std::vector<glm::mat4> const& transforms,
                            std::vector<Material> const& sphereMaterials,
                            std::vector<Material> const& modelMaterials);
-
-    void createSkybox();
 
     void drawScreenQuad() const;
 

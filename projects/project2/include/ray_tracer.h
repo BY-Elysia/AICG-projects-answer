@@ -1,35 +1,18 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <memory>
-#include <vector>
 
 #include <glm/glm.hpp>
 
 #include <graphics/texture/texture2d.h>
 
-#include "bvh.h"
-#include "material.h"
+#include "scene.h"
+#include "skybox.h"
 
 class RayTracer {
 public:
     RayTracer(uint32_t width, uint32_t height);
-
-    struct Scene {
-        std::vector<Sphere> spheres;
-        std::vector<Primitive> primitives;
-        std::vector<Triangle> triangles;
-        std::vector<Vertex> vertices;
-        std::vector<Material> materials;
-        std::vector<BVH::Node> nodes;
-    };
-
-    struct Skybox {
-        uint32_t width{0};
-        uint32_t height{0};
-        std::array<std::vector<uint8_t>, 6> faces;
-    };
 
     virtual ~RayTracer() = default;
 

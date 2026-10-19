@@ -1,11 +1,9 @@
 #include "ray_tracer_app.h"
-#include "bvh.h"
 #include "random.h"
 
 #include <array>
 #include <cmath>
 #include <format>
-#include <iostream>
 #include <numbers>
 #include <stdexcept>
 #include <utility>
@@ -13,9 +11,6 @@
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -34,17 +29,24 @@ RayTracerApp::RayTracerApp(Config const& config)
     createSpheres();
 
     // skybox
-    createSkybox();
+    auto skybox = std::make_shared<Skybox>(std::array<std::filesystem::path, 6>{
+        getAssetPath("skyboxrt/right.jpg"),
+        getAssetPath("skyboxrt/left.jpg"),
+        getAssetPath("skyboxrt/top.jpg"),
+        getAssetPath("skyboxrt/bottom.jpg"),
+        getAssetPath("skyboxrt/front.jpg"),
+        getAssetPath("skyboxrt/back.jpg"),
+    });
 
     // ray tracers
     auto const width = m_window.framebufferWidth();
     auto const height = m_window.framebufferHeight();
     m_cpuTracer = std::make_unique<CpuRayTracer>(width, height);
-    m_cpuTracer->setSkybox(m_skybox);
+    m_cpuTracer->setSkybox(skybox);
 
     m_gpuTracer = std::make_unique<GpuRayTracer>(
         width, height, getAssetPath("shaders/quad.vert"), getAssetPath("shaders/raytracing.frag"));
-    m_gpuTracer->setSkybox(m_skybox);
+    m_gpuTracer->setSkybox(std::move(skybox));
 
     // scene
     createRenderScene(m_renderSceneIndex);
@@ -212,39 +214,6 @@ void RayTracerApp::createSpheres() {
     m_sphereMaterials.emplace_back(Material::Type::Metal, 1.0f, 0.0f, glm::vec3{0.7f, 0.6f, 0.5f});
 }
 
-void RayTracerApp::createSkybox() {
-    static constexpr std::array<char const*, 6> paths{
-        "skyboxrt/right.jpg",
-        "skyboxrt/left.jpg",
-        "skyboxrt/top.jpg",
-        "skyboxrt/bottom.jpg",
-        "skyboxrt/front.jpg",
-        "skyboxrt/back.jpg",
-    };
-
-    auto skybox = std::make_shared<RayTracer::Skybox>();
-    for (size_t i = 0; i < paths.size(); ++i) {
-        int width{};
-        int height{};
-        int channels{};
-        auto const path = getAssetPath(paths[i]);
-        auto* pixels = stbi_load(path.string().c_str(), &width, &height, &channels, STBI_rgb);
-        if (pixels == nullptr) {
-            throw std::runtime_error("Unable to load skybox texture: " + path.string());
-        }
-        if (i != 0 && (width != skybox->width || height != skybox->height)) {
-            stbi_image_free(pixels);
-            throw std::runtime_error("Skybox faces must use the same dimensions");
-        }
-        skybox->width = static_cast<uint32_t>(width);
-        skybox->height = static_cast<uint32_t>(height);
-        skybox->faces[i].assign(pixels, pixels + static_cast<size_t>(width) * height * 3);
-        stbi_image_free(pixels);
-    }
-
-    m_skybox = std::move(skybox);
-}
-
 void RayTracerApp::createRenderScene(int index) {
     switch (index) {
     case 0:
@@ -306,59 +275,7 @@ void RayTracerApp::createTracerScene(std::vector<Sphere> const& spheres,
                                      std::vector<glm::mat4> const& transforms,
                                      std::vector<Material> const& sphereMaterials,
                                      std::vector<Material> const& modelMaterials) {
-    size_t totalVertices = 0;
-    size_t totalTriangles = 0;
-    for (auto const* model : models) {
-        totalVertices += model->vertices().size();
-        totalTriangles += model->triangles().size();
-    }
-
-    auto scene = std::make_shared<RayTracer::Scene>();
-    scene->spheres = spheres;
-    scene->vertices.reserve(totalVertices);
-    scene->triangles.reserve(totalTriangles);
-    scene->primitives.reserve(spheres.size() + totalTriangles);
-    scene->materials.reserve(sphereMaterials.size() + modelMaterials.size());
-    scene->materials.insert(scene->materials.end(), sphereMaterials.begin(), sphereMaterials.end());
-    scene->materials.insert(scene->materials.end(), modelMaterials.begin(), modelMaterials.end());
-
-    for (size_t i = 0; i < spheres.size(); ++i) {
-        scene->primitives.push_back({Primitive::Type::Sphere, static_cast<uint32_t>(i), static_cast<uint32_t>(i)});
-    }
-    for (size_t i = 0; i < models.size(); ++i) {
-        auto const vertexOffset = static_cast<uint32_t>(scene->vertices.size());
-        auto const normalTransform = glm::mat3(glm::transpose(glm::inverse(transforms[i])));
-        for (auto const& vertex : models[i]->vertices()) {
-            scene->vertices.push_back(
-                {glm::vec3(transforms[i] * glm::vec4(vertex.position, 1.0f)),
-                 normalTransform * vertex.normal,
-                 vertex.texCoord});
-        }
-        for (auto const& triangle : models[i]->triangles()) {
-            scene->primitives.push_back(
-                {Primitive::Type::Triangle,
-                 static_cast<uint32_t>(scene->triangles.size()),
-                 static_cast<uint32_t>(sphereMaterials.size() + i)});
-            scene->triangles.push_back(
-                {{triangle.v[0] + vertexOffset, triangle.v[1] + vertexOffset, triangle.v[2] + vertexOffset}});
-        }
-    }
-
-    BVH bvh{scene->spheres, scene->primitives, scene->triangles, scene->vertices};
-    std::vector<Primitive> orderedPrimitives;
-    orderedPrimitives.reserve(scene->primitives.size());
-    for (auto index : bvh.orderedPrimitiveIndices()) {
-        orderedPrimitives.push_back(scene->primitives[index]);
-    }
-    scene->primitives = std::move(orderedPrimitives);
-
-    std::cout << "Scene Statistics\n"
-              << "+ Spheres: " << spheres.size() << '\n'
-              << "+ Models:  " << models.size() << '\n'
-              << "  + vertices:  " << totalVertices << '\n'
-              << "  + triangles: " << totalTriangles << '\n'
-              << "+ BVH nodes: " << bvh.nodes().size() << ", depth: " << bvh.height() << std::endl;
-    scene->nodes = std::move(bvh).takeNodes();
+    auto scene = std::make_shared<Scene>(spheres, models, transforms, sphereMaterials, modelMaterials);
     m_gpuTracer->setScene(scene);
     m_cpuTracer->setScene(std::move(scene));
 }
