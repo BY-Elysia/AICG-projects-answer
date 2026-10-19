@@ -169,14 +169,13 @@ public:
     enum class TransformFeedbackBufferMode { None, Interleaved, Separate };
 
     struct TransformFeedbackVaryingInfo {
-        std::string name;
         VarType type;
         int size;
     };
 
     struct TransformFeedbackInfo {
         TransformFeedbackBufferMode bufferMode{TransformFeedbackBufferMode::None};
-        std::vector<TransformFeedbackVaryingInfo> varyings;
+        std::map<std::string, TransformFeedbackVaryingInfo> varyings;
     };
 
     using UniformVarInfoMap = std::map<std::string, UniformVarInfo, std::less<>>;
