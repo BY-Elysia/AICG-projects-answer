@@ -169,13 +169,15 @@ public:
     enum class TransformFeedbackBufferMode { None, Interleaved, Separate };
 
     struct TransformFeedbackVaryingInfo {
+        std::string name;
         VarType type;
         int size;
     };
 
     struct TransformFeedbackInfo {
         TransformFeedbackBufferMode bufferMode{TransformFeedbackBufferMode::None};
-        std::map<std::string, TransformFeedbackVaryingInfo> varyings;
+        // Order matches the transform feedback buffer layout and separate buffer binding indices.
+        std::vector<TransformFeedbackVaryingInfo> varyings;
     };
 
     using UniformVarInfoMap = std::map<std::string, UniformVarInfo, std::less<>>;

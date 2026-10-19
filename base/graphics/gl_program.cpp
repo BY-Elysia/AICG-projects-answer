@@ -793,15 +793,17 @@ void GLProgram::queryTransformFeedbackInfo() {
     GLint maxNameLength{};
     glGetProgramiv(m_handle, GL_TRANSFORM_FEEDBACK_VARYING_MAX_LENGTH, &maxNameLength);
     std::vector<GLchar> name(static_cast<size_t>(maxNameLength));
+    m_transformFeedbackInfo.varyings.reserve(static_cast<size_t>(varyingCount));
     for (GLint i = 0; i < varyingCount; ++i) {
         GLsizei nameLength{};
         GLsizei size{};
         GLenum type{};
         glGetTransformFeedbackVarying(
             m_handle, static_cast<GLuint>(i), maxNameLength, &nameLength, &size, &type, name.data());
-        m_transformFeedbackInfo.varyings.emplace(
-            std::string(name.data(), static_cast<size_t>(nameLength)),
-            TransformFeedbackVaryingInfo{type == GL_NONE ? VarType::Unknown : getVarType(type), size});
+        m_transformFeedbackInfo.varyings.push_back(
+            {std::string(name.data(), static_cast<size_t>(nameLength)),
+             type == GL_NONE ? VarType::Unknown : getVarType(type),
+             size});
     }
 }
 
@@ -982,8 +984,8 @@ void GLProgram::printTransformFeedbackInfo() const {
         break;
     }
     std::cout << '\n';
-    for (auto const& [name, info] : m_transformFeedbackInfo.varyings) {
-        std::cout << "  + " << name << "\n";
+    for (auto const& info : m_transformFeedbackInfo.varyings) {
+        std::cout << "  + " << info.name << "\n";
         std::cout << "    + type:       " << getVarTypeName(info.type) << "\n";
         std::cout << "    + size:       " << info.size << "\n";
     }
