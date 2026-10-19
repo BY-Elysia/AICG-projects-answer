@@ -38,6 +38,8 @@ For the existing C++ projects, you need:
 
 Projects 1 and 2 have separate `CMakeLists.txt` files and dependency manifests. Configure and build each from its own directory; there is no repository-wide CMake build. Follow the [Project 1 setup guide](projects/project1/README.md) for platform-specific commands and runtime asset setup. Project 2 uses the same CMake and vcpkg workflow from `projects/project2` and builds the `ray_tracer` target.
 
+In Project 2, use the Control Panel's renderer selector to switch between GPU and CPU ray tracing. Both renderers use the window's pixel dimensions; the CPU renderer progressively samples the full-resolution image.
+
 The setup instructions for Projects 3–6 will be added with those assignments.
 
 ## Projects
