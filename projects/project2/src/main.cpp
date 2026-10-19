@@ -1,12 +1,12 @@
-#include "ray_tracer.h"
+#include "ray_tracer_app.h"
 #include <iostream>
 
-static RayTracer::Config parseConfig(int argc, char* argv[]) {
-    RayTracer::Config config{
+static RayTracerApp::Config parseConfig(int argc, char* argv[]) {
+    RayTracerApp::Config config{
         .windowConfig{
             .title = "Ray Tracer",
-            .width = 1280,
-            .height = 720,
+            .width = 640,
+            .height = 360,
             .vsync = false,
 
             .resizable = false,
@@ -24,7 +24,7 @@ static RayTracer::Config parseConfig(int argc, char* argv[]) {
 
 int main(int argc, char* argv[]) {
     try {
-        RayTracer app{parseConfig(argc, argv)};
+        RayTracerApp app{parseConfig(argc, argv)};
         app.run();
     }
     catch (std::exception const& error) {

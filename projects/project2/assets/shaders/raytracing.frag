@@ -134,8 +134,6 @@ vec3 getHitPoint(inout Ray ray, float t);
  */
 vec4 trace(inout Ray ray);
 
-vec3 gammaCorrection(vec3 color);
-vec3 inverseGammaCorrection(vec3 color);
 void outputSample(vec4 color);
 
 // intersect
@@ -342,7 +340,7 @@ void getPrimitiveData(highp isampler2D data, int idx, out Primitive primitive);
  *     idx : index of data
  *     triIdx: store the data
  * Return: the get BVHNode data
- * Usage: getBVHNodeData(bvh, BVHNode.first or BVHNode.second , node)
+ * Usage: getBVHNodeData(bvh, BVHNode.first or BVHNode.second, node)
  */
 void getBVHNodeData(highp sampler2D data, int idx, out BVHNode node);
 
@@ -464,22 +462,12 @@ vec4 trace(inout Ray ray) {
     return vec4(color, 1.0);
 }
 
-vec3 gammaCorrection(vec3 color) {
-    return pow(color, vec3(1.0 / 2.2));
-}
-
-vec3 inverseGammaCorrection(vec3 color) {
-    return pow(color, vec3(2.2));
-}
-
 void outputSample(vec4 color) {
     if (totalSamples == 0u) {
-        fragColor = vec4(gammaCorrection(color.rgb), 1.0);
+        fragColor = color;
     } else {
-        vec3 rst = texture(RTResult, screenTexCoord).rgb;
-        fragColor = vec4(gammaCorrection(
-            (inverseGammaCorrection(rst) * float(totalSamples) + color.rgb) /
-            float(totalSamples + 1u)), 1.0);
+        vec3 average = texture(RTResult, screenTexCoord).rgb;
+        fragColor = vec4(average + (color.rgb - average) / float(totalSamples + 1u), 1.0);
     }
     fragRngState = rngState;
 }

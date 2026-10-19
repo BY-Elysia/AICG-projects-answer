@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "aabb.h"
@@ -30,6 +31,10 @@ public:
 
     std::vector<Node> const& nodes() const noexcept {
         return m_nodes;
+    }
+
+    std::vector<Node> takeNodes() && noexcept {
+        return std::move(m_nodes);
     }
 
     std::vector<uint32_t> const& orderedPrimitiveIndices() const noexcept {

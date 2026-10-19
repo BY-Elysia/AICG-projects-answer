@@ -1,0 +1,46 @@
+#pragma once
+
+#include <cstdint>
+#include <memory>
+#include <vector>
+
+#include <glm/glm.hpp>
+
+#include "ray_tracer.h"
+
+class CpuRayTracer final : public RayTracer {
+public:
+    CpuRayTracer(uint32_t width, uint32_t height);
+
+    void render(glm::mat4 const& cameraToWorld, glm::mat4 const& rasterToCamera) override;
+
+    gfx::Texture2D const& frame() const override {
+        return *m_frame;
+    }
+
+private:
+    struct Hit {
+        glm::vec3 position{0.0f};
+        glm::vec3 normal{0.0f};
+        uint32_t materialIndex{0};
+    };
+
+private:
+    std::vector<glm::vec3> m_average;
+    std::vector<uint32_t> m_rngStates;
+
+    std::unique_ptr<gfx::Texture2D> m_frame;
+
+private:
+    void onResize() override;
+
+    void onReset() override;
+
+    bool intersect(Ray& ray, Hit& hit) const;
+
+    bool intersectPrimitive(Ray& ray, Primitive const& primitive, Hit& hit) const;
+
+    glm::vec3 trace(Ray ray, uint32_t& rngState) const;
+
+    glm::vec3 sampleSkybox(glm::vec3 direction) const;
+};

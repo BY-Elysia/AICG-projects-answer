@@ -20,6 +20,7 @@ struct AABB {
         if (box.min.x > box.max.x || box.min.y > box.max.y || box.min.z > box.max.z) {
             return;
         }
+
         expand(box.min);
         expand(box.max);
     }
