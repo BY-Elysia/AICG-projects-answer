@@ -59,6 +59,8 @@ Scene::Scene(std::vector<Sphere> const& spheres,
               << "+ Models:  " << models.size() << '\n'
               << "  + vertices:  " << totalVertices << '\n'
               << "  + triangles: " << totalTriangles << '\n'
-              << "+ BVH nodes: " << bvh.nodes().size() << ", depth: " << bvh.height() << std::endl;
+              << "+ BVH:\n"
+              << "  + nodes: " << bvh.nodes().size() << '\n'
+              << "  + depth: " << bvh.height() << std::endl;
     m_nodes = std::move(bvh).takeNodes();
 }
