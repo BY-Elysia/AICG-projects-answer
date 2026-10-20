@@ -31,7 +31,7 @@ public:
 
 protected:
     glm::uvec2 m_extent{0};
-    glm::vec4 m_backgroundColor{0.025f, 0.03f, 0.04f, 1.0f};
+    glm::vec4 m_backgroundColor{0.06f, 0.07f, 0.085f, 1.0f};
     // CPU uploads HDR pixels; GPU writes the same format through a framebuffer attachment.
     std::unique_ptr<gfx::Texture2D> m_outputTexture;
 
