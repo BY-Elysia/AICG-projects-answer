@@ -120,5 +120,6 @@ int BVH::build(size_t begin, size_t end, size_t depth) {
     auto const left = build(begin, middle, depth + 1);
     auto const right = build(middle, end, depth + 1);
     m_nodes[nodeIndex] = {bounds, left, right};
+
     return nodeIndex;
 }

@@ -76,5 +76,6 @@ glm::vec3 Skybox::sample(glm::vec3 direction) const {
     };
     auto const top = glm::mix(samplePixel(x0, y0), samplePixel(x1, y0), x - x0);
     auto const bottom = glm::mix(samplePixel(x0, y1), samplePixel(x1, y1), x - x0);
+
     return glm::mix(top, bottom, y - y0);
 }

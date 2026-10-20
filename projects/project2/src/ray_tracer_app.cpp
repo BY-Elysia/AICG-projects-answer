@@ -276,8 +276,8 @@ void RayTracerApp::createTracerScene(std::vector<Sphere> const& spheres,
                                      std::vector<Material> const& sphereMaterials,
                                      std::vector<Material> const& modelMaterials) {
     auto scene = std::make_shared<Scene>(spheres, models, transforms, sphereMaterials, modelMaterials);
+    m_cpuTracer->setScene(scene);
     m_gpuTracer->setScene(scene);
-    m_cpuTracer->setScene(std::move(scene));
 }
 
 void RayTracerApp::drawScreenQuad() const {
