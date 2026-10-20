@@ -9,9 +9,9 @@ uniform mat4 uModelViewProjection;
 uniform mat3 uNormalTransform;
 
 // Captured before fixed-function clipping, in the ClipVertex record order.
-out precise vec4 tfClip;
-out precise vec3 tfWorldPosition;
-out precise vec3 tfNormal;
+precise out vec4 tfClip;
+precise out vec3 tfWorldPosition;
+precise out vec3 tfNormal;
 out vec2 tfUv;
 
 void main() {
