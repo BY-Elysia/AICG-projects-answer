@@ -14,13 +14,13 @@ BVH::BVH(std::vector<Sphere> const& spheres,
         auto const& primitive = primitives[i];
         auto& bounds = m_primitiveBounds[i];
         if (primitive.type == Primitive::Type::Sphere) {
-            auto const& sphere = spheres.at(primitive.shapeIndex);
+            auto const& sphere = spheres[primitive.shapeIndex];
             bounds.expand(sphere.position - glm::vec3{sphere.radius});
             bounds.expand(sphere.position + glm::vec3{sphere.radius});
         }
         else {
-            for (auto index : triangles.at(primitive.shapeIndex).v) {
-                bounds.expand(vertices.at(index).position);
+            for (auto index : triangles[primitive.shapeIndex].v) {
+                bounds.expand(vertices[index].position);
             }
         }
     }
