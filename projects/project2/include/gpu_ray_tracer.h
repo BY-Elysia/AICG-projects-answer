@@ -6,7 +6,6 @@
 #include <graphics/framebuffer.h>
 #include <graphics/gl_program.h>
 #include <graphics/sampler.h>
-#include <graphics/texture/texture_cubemap.h>
 #include <graphics/vertex_array.h>
 
 #include "ray_tracer.h"
@@ -29,7 +28,6 @@ private:
     std::unique_ptr<gfx::VertexArray> m_screenQuad;
     std::unique_ptr<gfx::Sampler> m_nearestSampler;
     std::unique_ptr<gfx::Sampler> m_skyboxSampler;
-    std::unique_ptr<gfx::TextureCubemap> m_skyboxTexture;
 
     std::unique_ptr<gfx::Framebuffer> m_sampleFramebuffers[2];
     std::unique_ptr<gfx::Texture2D> m_outFrames[2];
@@ -46,8 +44,6 @@ private:
 
 private:
     void onSceneChanged() override;
-
-    void onSkyboxChanged() override;
 
     void onResize() override;
 

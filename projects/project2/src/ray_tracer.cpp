@@ -14,7 +14,6 @@ void RayTracer::setScene(std::shared_ptr<Scene const> scene) {
 
 void RayTracer::setSkybox(std::shared_ptr<Skybox const> skybox) {
     m_skybox = std::move(skybox);
-    onSkyboxChanged();
     reset();
 }
 

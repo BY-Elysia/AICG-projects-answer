@@ -86,7 +86,7 @@ void CpuRayTracer::onReset() {
 }
 
 void CpuRayTracer::render(glm::mat4 const& cameraToWorld, glm::mat4 const& rasterToCamera) {
-    if (m_average.empty() || !m_scene || m_scene->nodes.empty()) {
+    if (m_average.empty() || !m_scene || m_scene->nodes().empty()) {
         return;
     }
 
@@ -108,7 +108,7 @@ void CpuRayTracer::render(glm::mat4 const& cameraToWorld, glm::mat4 const& raste
 
 bool CpuRayTracer::intersectPrimitive(Ray& ray, Primitive const& primitive, Hit& hit) const {
     if (primitive.type == Primitive::Type::Sphere) {
-        auto const& sphere = m_scene->spheres[primitive.shapeIndex];
+        auto const& sphere = m_scene->spheres()[primitive.shapeIndex];
         auto const offset = ray.origin - sphere.position;
         auto const halfB = glm::dot(offset, ray.direction);
         auto const c = glm::dot(offset, offset) - sphere.radius * sphere.radius;
@@ -129,10 +129,10 @@ bool CpuRayTracer::intersectPrimitive(Ray& ray, Primitive const& primitive, Hit&
         hit.normal = glm::normalize(hit.position - sphere.position);
     }
     else {
-        auto const& triangle = m_scene->triangles[primitive.shapeIndex];
-        auto const& a = m_scene->vertices[triangle.v[0]];
-        auto const& b = m_scene->vertices[triangle.v[1]];
-        auto const& c = m_scene->vertices[triangle.v[2]];
+        auto const& triangle = m_scene->triangles()[primitive.shapeIndex];
+        auto const& a = m_scene->vertices()[triangle.v[0]];
+        auto const& b = m_scene->vertices()[triangle.v[1]];
+        auto const& c = m_scene->vertices()[triangle.v[2]];
         auto const edge1 = b.position - a.position;
         auto const edge2 = c.position - a.position;
         auto const p = glm::cross(ray.direction, edge2);
@@ -173,11 +173,11 @@ bool CpuRayTracer::intersect(Ray& ray, Hit& hit) const {
     bool found = false;
 
     while (true) {
-        auto const& node = m_scene->nodes[nodeIndex];
+        auto const& node = m_scene->nodes()[nodeIndex];
         if (intersects(node.bounds, ray)) {
             if (node.isLeaf()) {
                 for (int i = 0; i < -node.second; ++i) {
-                    found |= intersectPrimitive(ray, m_scene->primitives[node.first + i], hit);
+                    found |= intersectPrimitive(ray, m_scene->primitives()[node.first + i], hit);
                 }
             }
             else {
@@ -199,9 +199,9 @@ glm::vec3 CpuRayTracer::trace(Ray ray, uint32_t& rngState) const {
     for (int step = 0; step < kMaxTraceDepth; ++step) {
         Hit hit;
         if (!intersect(ray, hit)) {
-            return color * sampleSkybox(ray.direction);
+            return color * (m_skybox ? m_skybox->sample(ray.direction) : glm::vec3{0.0f});
         }
-        auto const& material = m_scene->materials[hit.materialIndex];
+        auto const& material = m_scene->materials()[hit.materialIndex];
         color *= material.albedo;
         auto const normal = glm::normalize(hit.normal);
 
@@ -246,47 +246,4 @@ glm::vec3 CpuRayTracer::trace(Ray ray, uint32_t& rngState) const {
         ray.tMax = std::numeric_limits<float>::max();
     }
     return color;
-}
-
-glm::vec3 CpuRayTracer::sampleSkybox(glm::vec3 direction) const {
-    if (!m_skybox || m_skybox->width == 0 || m_skybox->height == 0) {
-        return glm::vec3{0.0f};
-    }
-
-    auto const absolute = glm::abs(direction);
-    int face;
-    float u;
-    float v;
-    if (absolute.x >= absolute.y && absolute.x >= absolute.z) {
-        face = direction.x >= 0.0f ? 0 : 1;
-        u = (direction.x >= 0.0f ? -direction.z : direction.z) / absolute.x;
-        v = -direction.y / absolute.x;
-    }
-    else if (absolute.y >= absolute.z) {
-        face = direction.y >= 0.0f ? 2 : 3;
-        u = direction.x / absolute.y;
-        v = (direction.y >= 0.0f ? direction.z : -direction.z) / absolute.y;
-    }
-    else {
-        face = direction.z >= 0.0f ? 4 : 5;
-        u = (direction.z >= 0.0f ? direction.x : -direction.x) / absolute.z;
-        v = -direction.y / absolute.z;
-    }
-
-    auto const x =
-        std::clamp((u + 1.0f) * 0.5f * m_skybox->width - 0.5f, 0.0f, static_cast<float>(m_skybox->width - 1));
-    auto const y =
-        std::clamp((v + 1.0f) * 0.5f * m_skybox->height - 0.5f, 0.0f, static_cast<float>(m_skybox->height - 1));
-    auto const x0 = static_cast<uint32_t>(x);
-    auto const y0 = static_cast<uint32_t>(y);
-    auto const x1 = std::min(x0 + 1, m_skybox->width - 1);
-    auto const y1 = std::min(y0 + 1, m_skybox->height - 1);
-    auto const& data = m_skybox->faces[face];
-    auto sample = [&](uint32_t sx, uint32_t sy) {
-        auto const offset = (static_cast<size_t>(sy) * m_skybox->width + sx) * 3;
-        return glm::vec3{data[offset], data[offset + 1], data[offset + 2]} / 255.0f;
-    };
-    auto const top = glm::mix(sample(x0, y0), sample(x1, y0), x - x0);
-    auto const bottom = glm::mix(sample(x0, y1), sample(x1, y1), x - x0);
-    return glm::mix(top, bottom, y - y0);
 }

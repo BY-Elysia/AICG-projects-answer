@@ -1,7 +1,6 @@
 #include "gpu_ray_tracer.h"
 
 #include <algorithm>
-#include <array>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -56,22 +55,6 @@ GpuRayTracer::GpuRayTracer(uint32_t width,
     reset();
 }
 
-void GpuRayTracer::onSkyboxChanged() {
-    std::array<void const*, 6> pixels{};
-    for (size_t i = 0; i < pixels.size(); ++i) {
-        pixels[i] = m_skybox->faces[i].data();
-    }
-    m_skyboxTexture = std::make_unique<gfx::TextureCubemap>(
-        gfx::TextureCubemap::Specification{
-            .width = m_skybox->width,
-            .height = m_skybox->height,
-            .format = gfx::Texture::Format::RGB8,
-            .pixelFormat = gfx::Texture::ExternalFormat::RGB,
-            .pixelType = gfx::Texture::PixelType::UByte
-        },
-        pixels);
-}
-
 void GpuRayTracer::onResize() {
     std::vector<uint32_t> rng(static_cast<size_t>(m_width) * m_height);
     for (uint32_t i = 0; i < rng.size(); ++i) {
@@ -112,8 +95,8 @@ void GpuRayTracer::onResize() {
 
 void GpuRayTracer::onSceneChanged() {
     std::vector<float> sphereData;
-    sphereData.reserve(m_scene->spheres.size() * 4);
-    for (auto const& sphere : m_scene->spheres) {
+    sphereData.reserve(m_scene->spheres().size() * 4);
+    for (auto const& sphere : m_scene->spheres()) {
         sphereData.insert(sphereData.end(), {sphere.position.x, sphere.position.y, sphere.position.z, sphere.radius});
     }
     m_sphereBuffer = makeDataTexture(sphereData,
@@ -124,8 +107,8 @@ void GpuRayTracer::onSceneChanged() {
 
     // Explicit packing matches getTriangleData in the shader regardless of GLM alignment.
     std::vector<float> vertexData;
-    vertexData.reserve(m_scene->vertices.size() * 8);
-    for (auto const& vertex : m_scene->vertices) {
+    vertexData.reserve(m_scene->vertices().size() * 8);
+    for (auto const& vertex : m_scene->vertices()) {
         vertexData.insert(vertexData.end(),
                           {vertex.position.x,
                            vertex.position.y,
@@ -143,8 +126,8 @@ void GpuRayTracer::onSceneChanged() {
                                      gfx::Texture::PixelType::Float);
 
     std::vector<int32_t> triangleData;
-    triangleData.reserve(m_scene->triangles.size() * 3);
-    for (auto const& triangle : m_scene->triangles) {
+    triangleData.reserve(m_scene->triangles().size() * 3);
+    for (auto const& triangle : m_scene->triangles()) {
         for (auto index : triangle.v) {
             triangleData.push_back(static_cast<int32_t>(index));
         }
@@ -156,8 +139,8 @@ void GpuRayTracer::onSceneChanged() {
                                     gfx::Texture::PixelType::Int);
 
     std::vector<float> materialData;
-    materialData.reserve(m_scene->materials.size() * 6);
-    for (auto const& material : m_scene->materials) {
+    materialData.reserve(m_scene->materials().size() * 6);
+    for (auto const& material : m_scene->materials()) {
         materialData.insert(materialData.end(),
                             {static_cast<float>(material.type),
                              material.ior,
@@ -173,8 +156,8 @@ void GpuRayTracer::onSceneChanged() {
                                        gfx::Texture::PixelType::Float);
 
     std::vector<int32_t> primitiveData;
-    primitiveData.reserve(m_scene->primitives.size() * 3);
-    for (auto const& primitive : m_scene->primitives) {
+    primitiveData.reserve(m_scene->primitives().size() * 3);
+    for (auto const& primitive : m_scene->primitives()) {
         primitiveData.insert(primitiveData.end(),
                              {static_cast<int32_t>(primitive.type),
                               static_cast<int32_t>(primitive.shapeIndex),
@@ -187,8 +170,8 @@ void GpuRayTracer::onSceneChanged() {
                                         gfx::Texture::PixelType::Int);
 
     std::vector<float> bvhData;
-    bvhData.reserve(m_scene->nodes.size() * 8);
-    for (auto const& node : m_scene->nodes) {
+    bvhData.reserve(m_scene->nodes().size() * 8);
+    for (auto const& node : m_scene->nodes()) {
         // Two RGBA texels: min.xyz/max.x, then max.yz/first/second.
         bvhData.insert(bvhData.end(),
                        {node.bounds.min.x,
@@ -203,8 +186,8 @@ void GpuRayTracer::onSceneChanged() {
     m_bvhBuffer = makeDataTexture(
         bvhData, 4, gfx::Texture::Format::RGBA32F, gfx::Texture::ExternalFormat::RGBA, gfx::Texture::PixelType::Float);
 
-    m_program->setUniform("nPrimitives", static_cast<int>(m_scene->primitives.size()));
-    m_program->setUniform("nBVHNodes", static_cast<int>(m_scene->nodes.size()));
+    m_program->setUniform("nPrimitives", static_cast<int>(m_scene->primitives().size()));
+    m_program->setUniform("nBVHNodes", static_cast<int>(m_scene->nodes().size()));
 }
 
 void GpuRayTracer::render(glm::mat4 const& cameraToWorld, glm::mat4 const& rasterToCamera) {
@@ -227,7 +210,7 @@ void GpuRayTracer::bindSceneTextures() {
         sampler.bind(unit);
     };
 
-    bind(*m_skyboxTexture, "sky", *m_skyboxSampler);
+    bind(m_skybox->texture(), "sky", *m_skyboxSampler);
     bind(*m_sphereBuffer, "sphereBuffer", *m_nearestSampler);
     bind(*m_materialBuffer, "materialBuffer", *m_nearestSampler);
     bind(*m_primitiveBuffer, "primitiveBuffer", *m_nearestSampler);

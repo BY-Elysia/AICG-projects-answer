@@ -41,6 +41,4 @@ private:
     bool intersectPrimitive(Ray& ray, Primitive const& primitive, Hit& hit) const;
 
     glm::vec3 trace(Ray ray, uint32_t& rngState) const;
-
-    glm::vec3 sampleSkybox(glm::vec3 direction) const;
 };

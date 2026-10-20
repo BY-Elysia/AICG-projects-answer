@@ -51,8 +51,6 @@ protected:
 protected:
     virtual void onSceneChanged() {}
 
-    virtual void onSkyboxChanged() {}
-
     virtual void onResize() = 0;
 
     virtual void onReset() {}

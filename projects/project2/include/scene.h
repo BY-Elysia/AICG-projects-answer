@@ -16,10 +16,35 @@ public:
           std::vector<Material> const& sphereMaterials,
           std::vector<Material> const& modelMaterials);
 
-    std::vector<Sphere> spheres;
-    std::vector<Primitive> primitives;
-    std::vector<Triangle> triangles;
-    std::vector<Vertex> vertices;
-    std::vector<Material> materials;
-    std::vector<BVH::Node> nodes;
+    std::vector<Sphere> const& spheres() const noexcept {
+        return m_spheres;
+    }
+
+    std::vector<Primitive> const& primitives() const noexcept {
+        return m_primitives;
+    }
+
+    std::vector<Triangle> const& triangles() const noexcept {
+        return m_triangles;
+    }
+
+    std::vector<Vertex> const& vertices() const noexcept {
+        return m_vertices;
+    }
+
+    std::vector<Material> const& materials() const noexcept {
+        return m_materials;
+    }
+
+    std::vector<BVH::Node> const& nodes() const noexcept {
+        return m_nodes;
+    }
+
+private:
+    std::vector<Sphere> m_spheres;
+    std::vector<Primitive> m_primitives;
+    std::vector<Triangle> m_triangles;
+    std::vector<Vertex> m_vertices;
+    std::vector<Material> m_materials;
+    std::vector<BVH::Node> m_nodes;
 };
