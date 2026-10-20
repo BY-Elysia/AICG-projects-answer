@@ -1,4 +1,4 @@
-# Project 1: Software Rasterizer
+# Project 1: Software Renderer
 
 English | [简体中文](README-zh.md)
 

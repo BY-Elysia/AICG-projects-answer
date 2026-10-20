@@ -1,4 +1,4 @@
-# Project 1：软件光栅化渲染器
+# Project 1：软件渲染器
 
 [English](README.md) | 简体中文
 
