@@ -365,7 +365,9 @@ vec3 getHitPoint(inout Ray ray, float t) {
 }
 
 vec4 trace(inout Ray ray) {
-    // TODO: change the code here to trace the ray through the scene
+    // TODO: Trace the ray through the scene and return its accumulated color.
+    // Hint: Continue scattering at each hit and sample the sky when the ray escapes.
+    /*************************************** TODO BEGIN ******************************************/
     // return vec4(texture(sky, ray.dir).rgb, 1.0);
 
     // version for scene 1
@@ -460,6 +462,7 @@ vec4 trace(inout Ray ray) {
     }
 
     return vec4(color, 1.0);
+    /**************************************** TODO END *******************************************/
 }
 
 void outputSample(vec4 color) {
@@ -473,7 +476,9 @@ void outputSample(vec4 color) {
 }
 
 bool intersect(inout Ray ray, inout Interaction isect) {
-    // TODO: perform ray hit the primitive with bvh trasversal
+    // TODO: Traverse the BVH to find the closest primitive hit.
+    // Hint: Test node bounds with `intersectAABB` and leaf primitives with `intersectPrimitive`.
+    /*************************************** TODO BEGIN ******************************************/
     // return false;
 
     bool hit = false;
@@ -527,10 +532,13 @@ bool intersect(inout Ray ray, inout Interaction isect) {
     }
 
     return hit;
+    /**************************************** TODO END *******************************************/
 }
 
 bool intersectAABB(inout Ray ray, inout AABB box, inout vec3 invDir) {
-    // TODO: perform ray hit AABB
+    // TODO: Test whether the ray intersects the axis-aligned bounding box.
+    // Hint: Intersect the ray interval with the box slabs along all three axes.
+    /*************************************** TODO BEGIN ******************************************/
     // return false;
 
     float tMinX = (box.pMin.x - ray.o.x) * invDir.x;
@@ -547,6 +555,7 @@ bool intersectAABB(inout Ray ray, inout AABB box, inout vec3 invDir) {
     float tMax = min(tMaxX, min(tMaxY, tMaxZ));
 
     return tMin <= tMax && tMin < ray.tMax && tMax > 0.0;
+    /**************************************** TODO END *******************************************/
 }
 
 bool solveQuadraticEquation(float a, float b, float c, out float x1, out float x2) {
@@ -576,9 +585,9 @@ bool solveQuadraticEquation(float a, float b, float c, out float x1, out float x
 }
 
 bool intersectPrimitive(inout Ray ray, inout Primitive primitive, inout Interaction isect) {
-    // TODO: perform ray hit the primitive, the type of the primitive can be
-    //      + sphere    (use intersectSphere)
-    //      + triangle  (use intersectTriangle)
+    // TODO: Intersect the ray with the selected primitive.
+    // Hint: Call `intersectSphere` for spheres and `intersectTriangle` for triangles.
+    /*************************************** TODO BEGIN ******************************************/
     // return false;
 
     bool hit = false;
@@ -600,10 +609,13 @@ bool intersectPrimitive(inout Ray ray, inout Primitive primitive, inout Interact
     } else {
         return false;
     }
+    /**************************************** TODO END *******************************************/
 }
 
 bool intersectSphere(inout Ray ray, inout Sphere sphere, inout Interaction isect) {
-    // TODO: perform ray hit the sphere
+    // TODO: Find the nearest valid intersection between the ray and the sphere.
+    // Hint: Update `ray.tMax` and the hit point only when a closer hit is found.
+    /*************************************** TODO BEGIN ******************************************/
     // return false;
 
     float a = dot(ray.dir, ray.dir);
@@ -634,10 +646,13 @@ bool intersectSphere(inout Ray ray, inout Sphere sphere, inout Interaction isect
     isect.hitPoint.normal = normalize(isect.hitPoint.position - sphere.position);
 
     return true;
+    /**************************************** TODO END *******************************************/
 }
 
 bool intersectTriangle(inout Ray ray, inout Triangle mesh, inout Interaction isect) {
-    // TODO: perform ray hit the triangle
+    // TODO: Find the nearest valid intersection between the ray and the triangle.
+    // Hint: Use barycentric coordinates to reject hits outside the triangle.
+    /*************************************** TODO BEGIN ******************************************/
     // return false;
 
     vec3 o = ray.o;
@@ -711,6 +726,7 @@ bool intersectTriangle(inout Ray ray, inout Triangle mesh, inout Interaction ise
     // } else {
     //     return false;
     // }
+    /**************************************** TODO END *******************************************/
 }
 
 // sample
@@ -747,7 +763,9 @@ float fresnelSchlick(float cosTheta, float ior) {
 }
 
 bool lambertianScatterFunction(inout Ray ray, inout Interaction isect) {
-    // TODO: perform ray interact with the lambert material
+    // TODO: Generate a diffuse bounce for the Lambertian material.
+    // Hint: Sample the cosine-weighted hemisphere around the hit normal.
+    /*************************************** TODO BEGIN ******************************************/
     // return false;
 
     LocalCoord localCoord = createLocalCoord(isect.hitPoint.normal);
@@ -757,10 +775,13 @@ bool lambertianScatterFunction(inout Ray ray, inout Interaction isect) {
     ray.tMax = INFINITY;
 
     return dot(ray.dir, isect.hitPoint.normal) > 0.0;
+    /**************************************** TODO END *******************************************/
 }
 
 bool metalScatterFunction(inout Ray ray, inout Interaction isect) {
-    // TODO: perform ray interact with the metallic material
+    // TODO: Generate a fuzzy reflection for the metal material.
+    // Hint: Use `isect.material.fuzz` to perturb the reflected direction.
+    /*************************************** TODO BEGIN ******************************************/
     // return false;
 
     vec3 reflectDir = reflect(ray.dir, isect.hitPoint.normal);
@@ -771,11 +792,14 @@ bool metalScatterFunction(inout Ray ray, inout Interaction isect) {
     ray.tMax = INFINITY;
 
     return dot(ray.dir, isect.hitPoint.normal) > 0.0;
+    /**************************************** TODO END *******************************************/
 }
 
 void dielectricScatterFunction(inout Ray ray, inout Interaction isect) {
-    // TODO: perform ray interact with the dielectric material
-    // return ;
+    // TODO: Choose reflection or refraction for the dielectric material.
+    // Hint: Account for total internal reflection and Fresnel reflectance.
+    /*************************************** TODO BEGIN ******************************************/
+    // return;
 
     vec3 wi = normalize(ray.dir);
     vec3 n = normalize(isect.hitPoint.normal);
@@ -794,6 +818,7 @@ void dielectricScatterFunction(inout Ray ray, inout Interaction isect) {
     }
 
     ray.tMax = INFINITY;
+    /**************************************** TODO END *******************************************/
 }
 
 void rngInit() {

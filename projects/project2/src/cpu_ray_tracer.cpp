@@ -33,6 +33,8 @@ static glm::vec3 toWorld(glm::vec3 normal, glm::vec3 sample) {
 }
 
 static bool intersectAABB(Ray const& ray, AABB const& box) {
+    // TODO: Perform ray-AABB intersection.
+    /**************************************** Todo Begin *****************************************/
     float near = 0.0f;
     float far = ray.tMax;
     for (int axis = 0; axis < 3; ++axis) {
@@ -54,11 +56,13 @@ static bool intersectAABB(Ray const& ray, AABB const& box) {
         }
     }
     return true;
+    /***************************************** Todo End ******************************************/
 }
 
 static bool intersectSphere(Ray& ray, Sphere const& sphere, glm::vec3& hitPosition, glm::vec3& hitNormal) {
-    // TODO: Perform ray-sphere intersection
-    // Hint: Do not forget to modifiy ray.tMax
+    // TODO: Find the nearest valid intersection between the ray and the sphere.
+    // Hint: Update `ray.tMax` when a closer hit is found.
+    /**************************************** Todo Begin *****************************************/
     auto const offset = ray.origin - sphere.position;
     auto const halfB = glm::dot(offset, ray.direction);
     auto const c = glm::dot(offset, offset) - sphere.radius * sphere.radius;
@@ -78,12 +82,14 @@ static bool intersectSphere(Ray& ray, Sphere const& sphere, glm::vec3& hitPositi
     hitPosition = ray.at(t);
     hitNormal = glm::normalize(hitPosition - sphere.position);
     return true;
+    /***************************************** Todo End ******************************************/
 }
 
 static bool intersectTriangle(
     Ray& ray, Vertex const& a, Vertex const& b, Vertex const& c, glm::vec3& hitPosition, glm::vec3& hitNormal) {
-    // TODO: Perform ray-triangle intersection
-    // Hint: Do not forget to modifiy ray.tMax
+    // TODO: Find the nearest valid intersection between the ray and the triangle.
+    // Hint: Update `ray.tMax` when a closer hit is found.
+    /**************************************** Todo Begin *****************************************/
     auto const edge1 = b.position - a.position;
     auto const edge2 = c.position - a.position;
     auto const p = glm::cross(ray.direction, edge2);
@@ -112,6 +118,7 @@ static bool intersectTriangle(
     hitNormal = glm::normalize(glm::dot(interpolatedNormal, interpolatedNormal) > 0.0f ? interpolatedNormal
                                                                                        : glm::cross(edge1, edge2));
     return true;
+    /***************************************** Todo End ******************************************/
 }
 
 CpuRayTracer::CpuRayTracer(uint32_t width, uint32_t height)
@@ -228,18 +235,21 @@ glm::vec3 CpuRayTracer::trace(Ray ray, uint32_t& rngState) const {
     for (int step = 0; step < kMaxTraceDepth; ++step) {
         Hit hit;
         if (!intersect(ray, hit)) {
-            // TODO: sample the skybox color for the escaping ray
+            // TODO: Sample the skybox when the ray escapes the scene.
+            // Hint: Sample the skybox in the ray direction.
+            /**************************************** Todo Begin *****************************************/
             return color * (m_skybox ? m_skybox->sample(ray.direction) : glm::vec3{0.0f});
+            /***************************************** Todo End ******************************************/
         }
         auto const& material = m_scene->materials()[hit.materialIndex];
         color *= material.albedo;
         auto const normal = glm::normalize(hit.normal);
 
-        // TODO: Change the outgoing ray behavior based on the material
-        // Hint: ray.origin = ...
-        // Hint: ray.direction = ...
+        // TODO: Generate the next ray according to the hit material.
+        // Hint: Update `ray.origin` and `ray.direction` for the next bounce.
+        /**************************************** Todo Begin *****************************************/
         if (material.type == Material::Type::Lambertian) {
-            // TODO: Reflection for lambert material
+            // TODO: Implement diffuse scattering for the Lambertian material.
             ray.origin = hit.position + kEpsilon * normal;
             ray.direction = glm::normalize(toWorld(normal, cosineHemisphere(rngState)));
             if (glm::dot(ray.direction, normal) <= 0.0f) {
@@ -247,7 +257,7 @@ glm::vec3 CpuRayTracer::trace(Ray ray, uint32_t& rngState) const {
             }
         }
         else if (material.type == Material::Type::Metal) {
-            // TODO: Reflection for metal material
+            // TODO: Implement fuzzy reflection for the metal material.
             auto const reflection = glm::reflect(ray.direction, normal);
             ray.origin = hit.position + kEpsilon * normal;
             ray.direction =
@@ -257,7 +267,7 @@ glm::vec3 CpuRayTracer::trace(Ray ray, uint32_t& rngState) const {
             }
         }
         else {
-            // TODO: Refraction for metal material
+            // TODO: Implement Fresnel reflection and refraction for the dielectric material.
             auto facingNormal = normal;
             auto const cosine = glm::dot(ray.direction, normal);
             auto const eta = cosine > 0.0f ? material.ior : 1.0f / material.ior;
@@ -279,6 +289,7 @@ glm::vec3 CpuRayTracer::trace(Ray ray, uint32_t& rngState) const {
                 ray.direction = glm::normalize(refraction);
             }
         }
+        /***************************************** Todo End ******************************************/
 
         // Reset the tMax of the ray for the next trace
         ray.tMax = std::numeric_limits<float>::max();
