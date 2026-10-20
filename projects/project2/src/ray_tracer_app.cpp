@@ -120,6 +120,9 @@ void RayTracerApp::renderFrame() {
 
     m_presentProgram->use();
     auto const frameUnit = m_presentProgram->getTextureBinding("frame");
+    if (frameUnit < 0) {
+        throw std::runtime_error("The frame sampler is not active.");
+    }
     tracer.frame().bind(frameUnit);
     m_presentSampler->bind(frameUnit);
     drawScreenQuad();

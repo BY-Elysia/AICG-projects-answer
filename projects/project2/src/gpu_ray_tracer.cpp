@@ -219,6 +219,10 @@ void GpuRayTracer::render(glm::mat4 const& cameraToWorld, glm::mat4 const& raste
 void GpuRayTracer::bindSceneTextures() {
     auto bind = [this](gfx::Texture const& texture, char const* name, gfx::Sampler const& sampler) {
         auto const unit = m_program->getTextureBinding(name);
+        if (unit < 0) {
+            return;
+        }
+
         texture.bind(unit);
         sampler.bind(unit);
     };

@@ -159,6 +159,9 @@ void SoftwareRendererApp::renderFrame() {
     m_displayProgram->use();
 
     auto const hdrTextureUnit = m_displayProgram->getTextureBinding("uHdrColor");
+    if (hdrTextureUnit < 0) {
+        throw std::runtime_error("The uHdrColor sampler is not active.");
+    }
     auto const& output = renderer.outputTexture();
     output.bind(hdrTextureUnit);
     m_displaySampler.bind(hdrTextureUnit);
