@@ -8,7 +8,7 @@ The assignment requires separate CPU and GPU implementations. The CPU implementa
 
 The default scene is Damaged Helmet. Both implementations render the rotating model with textured materials and directional lighting. The interface provides controls for light color and intensity.
 
-![Project runtime example](docs/images/project1.png)
+![Project runtime example](../../screenshots/project1.png)
 
 ## Contents
 
@@ -134,7 +134,6 @@ repository root/
     ├── CMakeLists.txt            Build entry point
     ├── vcpkg.json                Dependency manifest
     ├── cmake/sync_assets.cmake   Runtime asset synchronization
-    ├── docs/images/              README illustrations
     ├── include/                  Data types and class declarations
     ├── src/                      C++ implementations
     └── assets/
