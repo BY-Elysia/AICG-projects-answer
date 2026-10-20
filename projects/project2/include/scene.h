@@ -36,7 +36,7 @@ public:
         return m_materials;
     }
 
-    std::vector<BVH::Node> const& nodes() const noexcept {
+    std::vector<BVHNode> const& nodes() const noexcept {
         return m_nodes;
     }
 
@@ -46,5 +46,5 @@ private:
     std::vector<Triangle> m_triangles;
     std::vector<Vertex> m_vertices;
     std::vector<Material> m_materials;
-    std::vector<BVH::Node> m_nodes;
+    std::vector<BVHNode> m_nodes;
 };

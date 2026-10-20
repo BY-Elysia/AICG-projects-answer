@@ -6,6 +6,9 @@
 
 #include <glm/glm.hpp>
 
+#include "material.h"
+#include "primitive.h"
+#include "ray.h"
 #include "ray_tracer.h"
 
 class CpuRayTracer final : public RayTracer {
@@ -24,6 +27,7 @@ public:
 
 private:
     struct Hit {
+        Primitive primitive{};
         glm::vec3 position{0.0f};
         glm::vec3 normal{0.0f};
         uint32_t materialIndex{0};
@@ -41,6 +45,12 @@ private:
     bool intersect(Ray& ray, Hit& hit) const;
 
     bool intersectPrimitive(Ray& ray, Primitive const& primitive, Hit& hit) const;
+
+    bool lambertianScatterFunction(Ray& ray, Hit const& hit, Material const& material, uint32_t& rngState) const;
+
+    bool metalScatterFunction(Ray& ray, Hit const& hit, Material const& material, uint32_t& rngState) const;
+
+    void dielectricScatterFunction(Ray& ray, Hit const& hit, Material const& material, uint32_t& rngState) const;
 
     glm::vec3 trace(Ray ray, uint32_t& rngState) const;
 };

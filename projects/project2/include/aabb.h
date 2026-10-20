@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 #include <glm/glm.hpp>
@@ -46,13 +47,26 @@ struct AABB {
     }
 
     bool intersects(Ray const& ray) const noexcept {
-        auto const inverseDirection = 1.0f / ray.direction;
-        auto t0 = (min - ray.origin) * inverseDirection;
-        auto t1 = (max - ray.origin) * inverseDirection;
-        auto const near = glm::min(t0, t1);
-        auto const far = glm::max(t0, t1);
-        auto const tNear = std::max({near.x, near.y, near.z, 0.0f});
-        auto const tFar = std::min({far.x, far.y, far.z, ray.tMax});
-        return tNear <= tFar;
+        float near = 0.0f;
+        float far = ray.tMax;
+        for (int axis = 0; axis < 3; ++axis) {
+            if (std::abs(ray.direction[axis]) < 1e-8f) {
+                if (ray.origin[axis] < min[axis] || ray.origin[axis] > max[axis]) {
+                    return false;
+                }
+                continue;
+            }
+            auto first = (min[axis] - ray.origin[axis]) / ray.direction[axis];
+            auto second = (max[axis] - ray.origin[axis]) / ray.direction[axis];
+            if (first > second) {
+                std::swap(first, second);
+            }
+            near = std::max(near, first);
+            far = std::min(far, second);
+            if (near > far) {
+                return false;
+            }
+        }
+        return true;
     }
 };

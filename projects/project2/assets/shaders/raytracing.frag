@@ -13,7 +13,7 @@ const int TRIANGLE_SHAPE = 1;
 
 const int DATA_BUFFER_WIDTH = 2048;
 
-const float INFINITY = 10e10f;
+const float INFINITY = 3.402823466e+38f;
 const float FloatOneMinusEpsilon = 0.99999994f;
 const float Pi = 3.14159265358979323846f;
 const float Epsilon = 1e-3f;
@@ -27,8 +27,8 @@ struct Camera {
 };
 
 struct Ray {
-    vec3 o;
-    vec3 dir;
+    vec3 origin;
+    vec3 direction;
     float tMax;
 };
 
@@ -45,8 +45,8 @@ struct LocalCoord {
 };
 
 struct AABB {
-    vec3 pMin;
-    vec3 pMax;
+    vec3 min;
+    vec3 max;
 };
 
 struct Sphere {
@@ -54,35 +54,36 @@ struct Sphere {
     float radius;
 };
 
-struct TriangleIndex {
+struct Triangle {
     int v[3];
 };
 
-struct Triangle {
-    Vertex v[3];
+struct TriangleData {
+    Vertex vertices[3];
 };
 
 struct Material {
     int type;
-    float fuzz;
     float ior;
+    float fuzz;
     vec3 albedo;
 };
 
 struct Primitive {
-    int shapeType; // 0: sphere 1 : triangle
-    int shapeIdx;
-    int materialIdx;
+    int type; // 0: sphere 1: triangle
+    int shapeIndex;
+    int materialIndex;
 };
 
-struct Interaction {
+struct Hit {
     Primitive primitive;
-    Vertex hitPoint;
-    Material material;
+    vec3 position;
+    vec3 normal;
+    int materialIndex;
 };
 
 struct BVHNode {
-    AABB box;
+    AABB bounds;
     // Interior: first/second are left/right child node indices (second >= 0).
     // Leaf: first is the first primitive index; second is the negative primitive count.
     int first;
@@ -120,75 +121,76 @@ Ray generateRay(vec2 u);
 /**
  * Summary: get the hit point
  * Parameters:
- *     ray:
- *     t  : distance between the origin and the hit point
+ *     ray: the ray
+ *     t: distance between the ray origin and the hit point
  * Return: the hit point
  */
-vec3 getHitPoint(inout Ray ray, float t);
+vec3 getHitPoint(in Ray ray, float t);
 
 /**
  * Summary: trace the ray in the scene and calculate the color of pixel
  * Parameters:
  *     ray: the ray
+ *     rngState: random number generator state
  * Return: the color of pixel
  */
-vec4 trace(inout Ray ray);
-
-void outputSample(vec4 color);
-
-// intersect
-bool solveQuadraticEquation(float a, float b, float c, out float x1, out float x2);
+vec3 trace(Ray ray, inout uint rngState);
 
 /**
  * Summary: check whether the ray hit something
  * Parameters:
  *     ray: the ray
- *     isect: record the shape and material of the primitive
+ *     hit: record the primitive, hit position, normal, and material index
  * Return: true if the ray hit something
  */
-bool intersect(inout Ray ray, inout Interaction isect);
+bool intersect(inout Ray ray, inout Hit hit);
 
 /**
  * Summary: check whether the ray hit AABB
  * Parameters:
  *     ray: the ray
  *     box: the AABB that will be checked
- *     isect: record the shape and material of the primitive
- *     invDir: vec3(1.0 / ray.dir.x, 1.0 / ray.dir.y, 1.0 / ray.dir.z)
  * Return: true if the ray hit AABB
  */
-bool intersectAABB(inout Ray ray, inout AABB box, inout vec3 invDir);
+bool intersectAABB(in Ray ray, in AABB box);
 
 /**
  * Summary: check whether the ray hit primitive
  * Parameters:
  *     ray: the ray
  *     primitive: the primitive that will be checked
- *     isect: record the shape of the primitive
+ *     hit: record the primitive, hit position, normal, and material index
  * Return: true if the ray hit primitive
  */
-bool intersectPrimitive(inout Ray ray, inout Primitive primitive, inout Interaction isect);
+bool intersectPrimitive(inout Ray ray, in Primitive primitive, inout Hit hit);
 
 /**
  * Summary: check whether the ray hit sphere
  * Parameters:
  *     ray: the ray
  *     sphere: the sphere that will be checked
- *     isect: record the shape of the sphere
+ *     hitPosition: the intersection position
+ *     hitNormal: the normal at the intersection
  * Return: true if the ray hit sphere
  */
 
-bool intersectSphere(inout Ray ray, inout Sphere sphere, inout Interaction isect);
+bool intersectSphere(inout Ray ray, Sphere sphere, out vec3 hitPosition, out vec3 hitNormal);
 
 /**
  * Summary: check whether the ray hit triangle
  * Parameters:
  *     ray: the ray
- *     mesh: the triangle that will be checked
- *     isect: record the shape of the triangle
+ *     a, b, c: the triangle vertices
+ *     hitPosition: the intersection position
+ *     hitNormal: the interpolated normal at the intersection
  * Return: true if the ray hit triangle
  */
-bool intersectTriangle(inout Ray ray, inout Triangle mesh, inout Interaction isect);
+bool intersectTriangle(inout Ray ray,
+                       Vertex a,
+                       Vertex b,
+                       Vertex c,
+                       out vec3 hitPosition,
+                       out vec3 hitNormal);
 
 // sample
 /**
@@ -205,7 +207,7 @@ vec3 uniformSampleHemiSphere(vec2 u);
  *     u: random number vector
  * Return: the sample vector
  */
-vec3 cosineWeightedSampleHeimiSphere(vec2 u);
+vec3 cosineWeightedSampleHemisphere(vec2 u);
 
 /**
  * Summary: uniform sample in the sphere
@@ -229,47 +231,46 @@ float fresnelSchlick(float cosTheta, float ior);
  * Summary: update the ray when hit lambertian material
  * Parameters:
  *     ray: the ray
- *     isect : record the shape and material of the primitive
+ *     hit : record the shape and material of the primitive
  * Return: true if the ray continue bounce
  */
-bool lambertianScatterFunction(inout Ray ray, inout Interaction isect);
+bool lambertianScatterFunction(inout Ray ray, in Hit hit, in Material material, inout uint rngState);
 
 /**
  * Summary: update the ray when hit metal material
  * Parameters:
  *     ray: the ray
- *     isect : record the shape and material of the primitive
+ *     hit : record the shape and material of the primitive
  * Return: true if the ray continue bounce
  */
-bool metalScatterFunction(inout Ray ray, inout Interaction isect);
+bool metalScatterFunction(inout Ray ray, in Hit hit, in Material material, inout uint rngState);
 
 /**
  * Summary: update the ray when hit dielectric material
  * Parameters:
  *     ray: the ray
- *     isect : record the shape and material of the primitive
+ *     hit : record the shape and material of the primitive
  */
-void dielectricScatterFunction(inout Ray ray, inout Interaction isect);
+void dielectricScatterFunction(inout Ray ray, in Hit hit, in Material material, inout uint rngState);
 
 // random number generator
-uint rngState = 0u;
-void rngInit();
-uint rngUpdateState();
-uint rngXorShift();
-
 /**
- * Summary: get random number in [0, 1)
- * Return: the random number
+ * Summary: advance the RNG state and get a random value in [0, 1)
+ * Parameters:
+ *     rngState: the state to update
+ * Return: the random value
  */
-float rngGetRandom1D();
+float randomFloat(inout uint rngState);
 
 /**
- * Summary: get random vector in [0, 1)
+ * Summary: get two successive random values in [0, 1), advancing the RNG state twice
+ * Parameters:
+ *     rngState: the state to update
  * Return: the random vector
  */
-vec2 rngGetRandom2D();
+vec2 randomVec2(inout uint rngState);
 
-LocalCoord createLocalCoord(inout vec3 n);
+LocalCoord createLocalCoord(in vec3 normal);
 vec3 toLocal(LocalCoord coord, vec3 v);
 vec3 toWorld(LocalCoord coord, vec3 v);
 
@@ -285,7 +286,7 @@ void getVec4FromTexture(sampler2D data, vec2 texCoord, out vec4 v);
  *     idx : index of data
  *     material: store the data
  * Return: the material data
- * Usage: getMaterialData(materialBuffer, isect.primitive.materialIdx, isect.material)
+ * Usage: getMaterialData(materialBuffer, hit.materialIndex, material)
  */
 void getMaterialData(sampler2D data, int idx, out Material material);
 
@@ -296,7 +297,7 @@ void getMaterialData(sampler2D data, int idx, out Material material);
  *     idx : index of data
  *     sphere: store the data
  * Return: the sphere data
- * Usage: getSphereData(sphereBuffer, isect.primitive.shapeIdx, sphere)
+ * Usage: getSphereData(sphereBuffer, hit.primitive.shapeIndex, sphere)
  */
 void getSphereData(sampler2D data, int idx, out Sphere sphere);
 
@@ -305,29 +306,29 @@ void getSphereData(sampler2D data, int idx, out Sphere sphere);
  * Parameters:
  *     data: buffer of data
  *     idx : index of data
- *     triIdx: store the data
+ *     triangle: store the triangle vertex indices
  * Return: the vertex index data of triangle
- * Usage: getTriangleIndexData(triangleIndexBuffer, primitive.shapeIdx, idx)
+ * Usage: getTriangleIndexData(triangleIndexBuffer, primitive.shapeIndex, triangle)
  */
-void getTriangleIndexData(highp isampler2D data, int idx, out TriangleIndex triIdx);
+void getTriangleIndexData(highp isampler2D data, int idx, out Triangle triangle);
 
 /**
  * Summary: get the vertex data of triangle
  * Parameters:
  *     data: buffer of data
  *     idx : index of data
- *     triIdx: store the data
+ *     triangle: store the expanded triangle vertices
  * Return: the vertex data of triangle
- * Usage: getTriangleData(vertexBuffer, triidx, triangle)
+ * Usage: getTriangleData(vertexBuffer, triangle, triangleData)
  */
-void getTriangleData(sampler2D data, inout TriangleIndex idx, out Triangle triangle);
+void getTriangleData(sampler2D data, Triangle triangle, out TriangleData triangleData);
 
 /**
  * Summary: get primitive data
  * Parameters:
  *     data: buffer of data
- *     idx : index of data
- *     triIdx: store the data
+ *     idx: index of the primitive
+ *     primitive: store the primitive data
  * Return: the get primitive data
  * Usage: getPrimitiveData(primitiveBuffer, BVHNode.first, primitive);
  */
@@ -338,151 +339,80 @@ void getPrimitiveData(highp isampler2D data, int idx, out Primitive primitive);
  * Parameters:
  *     data: buffer of data
  *     idx : index of data
- *     triIdx: store the data
+ *     node: store the BVH node data
  * Return: the get BVHNode data
  * Usage: getBVHNodeData(bvh, BVHNode.first or BVHNode.second, node)
  */
 void getBVHNodeData(highp sampler2D data, int idx, out BVHNode node);
 
 void main() {
-    rngInit();
-    Ray ray = generateRay(vec2(rngGetRandom1D(), rngGetRandom1D()));
-    outputSample(trace(ray));
+    uint rngState = texture(oldRngState, screenTexCoord).r;
+
+    Ray ray = generateRay(randomVec2(rngState));
+    vec3 color = trace(ray, rngState);
+
+    if (totalSamples == 0u) {
+        fragColor = vec4(color, 1.0);
+    } else {
+        vec3 average = texture(RTResult, screenTexCoord).rgb;
+        fragColor = vec4(average + (color - average) / float(totalSamples + 1u), 1.0);
+    }
+
+    fragRngState = rngState;
 }
 
 Ray generateRay(vec2 u) {
     vec4 pixelPos = vec4(gl_FragCoord.x - 0.5 + u.x, gl_FragCoord.y - 0.5 + u.y, 0.0, 1.0);
     Ray ray;
-    ray.o = vec3(camera.cameraToWorld * vec4(0.0, 0.0, 0.0, 1.0));
+    ray.origin = vec3(camera.cameraToWorld * vec4(0.0, 0.0, 0.0, 1.0));
     vec3 localRayDir = (camera.rasterToCamera * pixelPos).xyz - vec3(0.0, 0.0, 0.0);
-    ray.dir = normalize(vec3(camera.cameraToWorld * vec4(localRayDir.xyz, 0.0)));
+    ray.direction = normalize(vec3(camera.cameraToWorld * vec4(localRayDir.xyz, 0.0)));
     ray.tMax = INFINITY;
     return ray;
 }
 
-vec3 getHitPoint(inout Ray ray, float t) {
-    return ray.o + t * ray.dir;
+vec3 getHitPoint(in Ray ray, float t) {
+    return ray.origin + t * ray.direction;
 }
 
-vec4 trace(inout Ray ray) {
-    // TODO: Trace the ray through the scene and return its accumulated color.
-    // Hint: Continue scattering at each hit and sample the sky when the ray escapes.
-    /*************************************** TODO BEGIN ******************************************/
-    // return vec4(texture(sky, ray.dir).rgb, 1.0);
-
-    // version for scene 1
-    // Interaction isect;
-    // Primitive prim;
-    // vec3 color = vec3(1.0, 1.0, 1.0);
-    // bool isHit = false;
-    // for (int i = 0; i < 3; ++i) {
-    //  getPrimitiveData(primitiveBuffer, i, prim);
-    //  Sphere sphere;
-    //  getSphereData(sphereBuffer, prim.shapeIdx, sphere);
-    //  if (intersectPrimitive(ray, prim, isect)) {
-    //     isHit = true;
-    //  }
-    // }
-
-    // if (isHit) {
-    //     return vec4(1.0, 1.0, 1.0, 1.0);
-    // } else {
-    //    return vec4(texture(sky, ray.dir).rgb, 1.0);
-    // }
-
-    // version for scene 2
-    // Interaction isect;
-    // vec3 color = vec3(1.0, 1.0, 1.0);
-    // bool stopTrace = false;
-    // Primitive prim;
-    // for (int step = 0; step < maxTraceDepth; ++step) {
-    //     bool isHit = false;
-    //     for (int i = 0; i < nPrimitives; ++i) {
-    //         getPrimitiveData(primitiveBuffer, i, prim);
-    //         if (intersectPrimitive(ray, prim, isect)) {
-    //             isHit = true;
-    //         }
-    //     }
-
-    //     if (isHit) {
-    //         getMaterialData(materialBuffer, isect.primitive.materialIdx, isect.material);
-    //         color = color * isect.material.albedo;
-    //         if (isect.material.type == LAMBERTIAN_MATERIAL) {
-    //             if (!lambertianScatterFunction(ray, isect)) {
-    //                 break;
-    //             }
-    //         } else if (isect.material.type == METAL_MATERIAL) {
-    //             if (!metalScatterFunction(ray, isect)) {
-    //                 break;
-    //             }
-    //         } else if (isect.material.type == DIELECTRIC_MATERIAL) {
-    //             dielectricScatterFunction(ray, isect);
-    //         }
-    //     } else {
-    //         stopTrace = true;
-    //         break;
-    //     }
-    // }
-
-    // if (stopTrace) {
-    //     color = color * texture(sky, normalize(ray.dir)).xyz;
-    // }
-
-    // return vec4(color, 1.0);
-
-
+vec3 trace(Ray ray, inout uint rngState) {
     vec3 color = vec3(1.0);
-    bool stopTrace = false;
     for (int step = 0; step < maxTraceDepth; ++step) {
-        Interaction isect = Interaction(
-            Primitive(0, 0, 0), Vertex(vec3(0.0), vec3(0.0), vec2(0.0)),
-            Material(0, 0.0, 1.0, vec3(0.0)));
-        if (intersect(ray, isect)) {
-            getMaterialData(materialBuffer, isect.primitive.materialIdx, isect.material);
-            color = color * isect.material.albedo;
-            if (isect.material.type == LAMBERTIAN_MATERIAL) {
-                if (!lambertianScatterFunction(ray, isect)) {
-                    break;
-                }
-            } else if (isect.material.type == METAL_MATERIAL) {
-                if (!metalScatterFunction(ray, isect)) {
-                    break;
-                }
-            } else if (isect.material.type == DIELECTRIC_MATERIAL) {
-                dielectricScatterFunction(ray, isect);
+        Hit hit = Hit(Primitive(0, 0, 0), vec3(0.0), vec3(0.0), 0);
+        if (!intersect(ray, hit)) {
+            // TODO: Sample the skybox when the ray escapes the scene.
+            // Hint: Sample the skybox in the ray direction.
+            /*************************************** TODO BEGIN ******************************************/
+            return color * texture(sky, ray.direction).rgb;
+            /**************************************** TODO END *******************************************/
+        }
+        Material material;
+        getMaterialData(materialBuffer, hit.materialIndex, material);
+        color = color * material.albedo;
+        if (material.type == LAMBERTIAN_MATERIAL) {
+            if (!lambertianScatterFunction(ray, hit, material, rngState)) {
+                break;
+            }
+        } else if (material.type == METAL_MATERIAL) {
+            if (!metalScatterFunction(ray, hit, material, rngState)) {
+                break;
             }
         } else {
-            stopTrace = true;
-            break;
+            dielectricScatterFunction(ray, hit, material, rngState);
         }
+
     }
 
-    if (stopTrace) {
-        color = color * texture(sky, normalize(ray.dir)).xyz;
-    }
-
-    return vec4(color, 1.0);
-    /**************************************** TODO END *******************************************/
+    return color;
 }
 
-void outputSample(vec4 color) {
-    if (totalSamples == 0u) {
-        fragColor = color;
-    } else {
-        vec3 average = texture(RTResult, screenTexCoord).rgb;
-        fragColor = vec4(average + (color.rgb - average) / float(totalSamples + 1u), 1.0);
-    }
-    fragRngState = rngState;
-}
-
-bool intersect(inout Ray ray, inout Interaction isect) {
+bool intersect(inout Ray ray, inout Hit hit) {
     // TODO: Traverse the BVH to find the closest primitive hit.
     // Hint: Test node bounds with `intersectAABB` and leaf primitives with `intersectPrimitive`.
     /*************************************** TODO BEGIN ******************************************/
     // return false;
 
-    bool hit = false;
-    vec3 invDir = vec3(1.0 / ray.dir.x, 1.0 / ray.dir.y, 1.0 / ray.dir.z);
+    bool foundHit = false;
     int currentNodeIndex = 0;
     int toVisitOffset = 0;
     int nodesToVisit[64];
@@ -494,7 +424,7 @@ bool intersect(inout Ray ray, inout Interaction isect) {
             break;
         }
         getBVHNodeData(bvh, currentNodeIndex, node);
-        if (intersectAABB(ray, node.box, invDir)) {
+        if (intersectAABB(ray, node.bounds)) {
             if (node.second < 0) {
                 int firstIndex = node.first;
                 int primitiveCount = -node.second;
@@ -505,8 +435,8 @@ bool intersect(inout Ray ray, inout Interaction isect) {
                 Primitive primitive;
                 for (int i = 0; i < primitiveCount; ++i) {
                     getPrimitiveData(primitiveBuffer, firstIndex + i, primitive);
-                    if (intersectPrimitive(ray, primitive, isect)) {
-                        hit = true;
+                    if (intersectPrimitive(ray, primitive, hit)) {
+                        foundHit = true;
                     }
                 }
 
@@ -531,80 +461,71 @@ bool intersect(inout Ray ray, inout Interaction isect) {
         }
     }
 
-    return hit;
+    return foundHit;
     /**************************************** TODO END *******************************************/
 }
 
-bool intersectAABB(inout Ray ray, inout AABB box, inout vec3 invDir) {
+bool intersectAABB(in Ray ray, in AABB box) {
     // TODO: Test whether the ray intersects the axis-aligned bounding box.
     // Hint: Intersect the ray interval with the box slabs along all three axes.
     /*************************************** TODO BEGIN ******************************************/
     // return false;
 
-    float tMinX = (box.pMin.x - ray.o.x) * invDir.x;
-    float tMaxX = (box.pMax.x - ray.o.x) * invDir.x;
-    if (tMinX > tMaxX) { swap(tMinX, tMaxX); }
-    float tMinY = (box.pMin.y - ray.o.y) * invDir.y;
-    float tMaxY = (box.pMax.y - ray.o.y) * invDir.y;
-    if (tMinY > tMaxY) { swap(tMinY, tMaxY); }
-    float tMinZ = (box.pMin.z - ray.o.z) * invDir.z;
-    float tMaxZ = (box.pMax.z - ray.o.z) * invDir.z;
-    if (tMinZ > tMaxZ) { swap(tMinZ, tMaxZ); }
-
-    float tMin = max(tMinX, max(tMinY, tMinZ));
-    float tMax = min(tMaxX, min(tMaxY, tMaxZ));
-
-    return tMin <= tMax && tMin < ray.tMax && tMax > 0.0;
+    float near = 0.0;
+    float far = ray.tMax;
+    for (int axis = 0; axis < 3; ++axis) {
+        if (abs(ray.direction[axis]) < 1e-8) {
+            if (ray.origin[axis] < box.min[axis] || ray.origin[axis] > box.max[axis]) {
+                return false;
+            }
+            continue;
+        }
+        float first = (box.min[axis] - ray.origin[axis]) / ray.direction[axis];
+        float second = (box.max[axis] - ray.origin[axis]) / ray.direction[axis];
+        if (first > second) {
+            swap(first, second);
+        }
+        near = max(near, first);
+        far = min(far, second);
+        if (near > far) {
+            return false;
+        }
+    }
+    return true;
     /**************************************** TODO END *******************************************/
 }
 
-bool solveQuadraticEquation(float a, float b, float c, out float x1, out float x2) {
-    // Find quadratic discriminant
-    float discrim = b * b - 4.0 * a * c;
-    if (discrim < 0.0) {
-        return false;
-    }
-
-    float rootDiscrim = sqrt(discrim);
-
-    // Compute quadratic _t_ values
-    float q;
-    if (b < 0.0) {
-        q = -0.5 * (b - rootDiscrim);
-    } else {
-        q = -0.5 * (b + rootDiscrim);
-    }
-
-    x1 = float(q / a);
-    x2 = float(c / q);
-    if (x1 > x2) {
-        swap(x1, x2);
-    }
-
-    return true;
-}
-
-bool intersectPrimitive(inout Ray ray, inout Primitive primitive, inout Interaction isect) {
+bool intersectPrimitive(inout Ray ray, in Primitive primitive, inout Hit hit) {
     // TODO: Intersect the ray with the selected primitive.
     // Hint: Call `intersectSphere` for spheres and `intersectTriangle` for triangles.
     /*************************************** TODO BEGIN ******************************************/
     // return false;
 
-    bool hit = false;
-    if (primitive.shapeType == SPHERE_SHAPE) {
+    vec3 hitPosition;
+    vec3 hitNormal;
+    bool foundHit = false;
+    if (primitive.type == SPHERE_SHAPE) {
         Sphere sphere;
-        getSphereData(sphereBuffer, primitive.shapeIdx, sphere);
-        hit = intersectSphere(ray, sphere, isect);
-    } else if (primitive.shapeType == TRIANGLE_SHAPE) {
-        TriangleIndex idx;
-        getTriangleIndexData(triangleIndexBuffer, primitive.shapeIdx, idx);
+        getSphereData(sphereBuffer, primitive.shapeIndex, sphere);
+        foundHit = intersectSphere(ray, sphere, hitPosition, hitNormal);
+    } else if (primitive.type == TRIANGLE_SHAPE) {
         Triangle triangle;
-        getTriangleData(vertexBuffer, idx, triangle);
-        hit = intersectTriangle(ray, triangle, isect);
+        getTriangleIndexData(triangleIndexBuffer, primitive.shapeIndex, triangle);
+        TriangleData triangleData;
+        getTriangleData(vertexBuffer, triangle, triangleData);
+        foundHit = intersectTriangle(ray,
+                                     triangleData.vertices[0],
+                                     triangleData.vertices[1],
+                                     triangleData.vertices[2],
+                                     hitPosition,
+                                     hitNormal);
     }
 
-    if (hit) {
-        isect.primitive = primitive;
+    if (foundHit) {
+        hit.primitive = primitive;
+        hit.position = hitPosition;
+        hit.normal = hitNormal;
+        hit.materialIndex = primitive.materialIndex;
         return true;
     } else {
         return false;
@@ -612,120 +533,74 @@ bool intersectPrimitive(inout Ray ray, inout Primitive primitive, inout Interact
     /**************************************** TODO END *******************************************/
 }
 
-bool intersectSphere(inout Ray ray, inout Sphere sphere, inout Interaction isect) {
+bool intersectSphere(inout Ray ray, in Sphere sphere, out vec3 hitPosition, out vec3 hitNormal) {
     // TODO: Find the nearest valid intersection between the ray and the sphere.
     // Hint: Update `ray.tMax` and the hit point only when a closer hit is found.
     /*************************************** TODO BEGIN ******************************************/
     // return false;
 
-    float a = dot(ray.dir, ray.dir);
-    float b = 2.0 * dot(ray.dir, ray.o - sphere.position);
-    float c = dot(ray.o - sphere.position, ray.o - sphere.position) - sphere.radius * sphere.radius;
-    float discriminant = b * b - 4.0 * a * c;
-    float x1 = 0.0;
-    float x2 = 0.0;
-    if (!solveQuadraticEquation(a, b, c, x1, x2)) {
+    vec3 offset = ray.origin - sphere.position;
+    float halfB = dot(offset, ray.direction);
+    float c = dot(offset, offset) - sphere.radius * sphere.radius;
+    float discriminant = halfB * halfB - c;
+    if (discriminant < 0.0) {
         return false;
     }
-
-    float tHit;
-    if (x1 > 0.0) {
-        tHit = x1;
-    } else if (x2 > 0.0) {
-        tHit = x2;
-    } else {
+    float root = sqrt(discriminant);
+    float t = -halfB - root;
+    if (t <= Epsilon) {
+        t = -halfB + root;
+    }
+    if (t <= Epsilon || t >= ray.tMax) {
         return false;
     }
-
-    if (tHit >= ray.tMax) {
-        return false;
-    }
-
-    ray.tMax = tHit;
-    isect.hitPoint.position = getHitPoint(ray, tHit);
-    isect.hitPoint.normal = normalize(isect.hitPoint.position - sphere.position);
-
+    ray.tMax = t;
+    hitPosition = getHitPoint(ray, t);
+    hitNormal = normalize(hitPosition - sphere.position);
     return true;
     /**************************************** TODO END *******************************************/
 }
 
-bool intersectTriangle(inout Ray ray, inout Triangle mesh, inout Interaction isect) {
+bool intersectTriangle(inout Ray ray,
+                       in Vertex a,
+                       in Vertex b,
+                       in Vertex c,
+                       out vec3 hitPosition,
+                       out vec3 hitNormal) {
     // TODO: Find the nearest valid intersection between the ray and the triangle.
     // Hint: Use barycentric coordinates to reject hits outside the triangle.
     /*************************************** TODO BEGIN ******************************************/
     // return false;
 
-    vec3 o = ray.o;
-    vec3 dir = ray.dir;
-    Vertex v1 = mesh.v[0];
-    Vertex v2 = mesh.v[1];
-    Vertex v3 = mesh.v[2];
-
-    vec3 p1 = v1.position;
-    vec3 p2 = v2.position;
-    vec3 p3 = v3.position;
-    vec3 n1 = v1.normal;
-    vec3 n2 = v2.normal;
-    vec3 n3 = v3.normal;
-    vec2 tex1 = v1.texCoord;
-    vec2 tex2 = v2.texCoord;
-    vec2 tex3 = v3.texCoord;
-
-    vec3 e1 = p2 - p1;
-    vec3 e2 = p3 - p1;
-
-    mat3 A = mat3(vec3(p1 - p2), vec3(p1 - p3), dir);
-    if (abs(determinant(A)) < 0.00001f) {
+    vec3 edge1 = b.position - a.position;
+    vec3 edge2 = c.position - a.position;
+    vec3 p = cross(ray.direction, edge2);
+    float determinant = dot(edge1, p);
+    if (abs(determinant) < 1e-8) {
         return false;
     }
-    vec3 tmp = p1 - o;
-    vec3 x = inverse(A) * tmp;
-    float alpha = 1.0 - x[0] - x[1];
-    float beta = x[0];
-    float gamma = x[1];
-    float tHit = x[2];
-    if (tHit < Epsilon || tHit >= ray.tMax) {
+    float inverseDeterminant = 1.0 / determinant;
+    vec3 offset = ray.origin - a.position;
+    float beta = dot(offset, p) * inverseDeterminant;
+    if (beta < 0.0 || beta > 1.0) {
         return false;
     }
-
-    if (alpha >= 0.0 && beta >= 0.0 && gamma >= 0.0) {
-        ray.tMax = tHit;
-        isect.hitPoint.position = alpha * p1 + beta * p2 + gamma * p3;
-        isect.hitPoint.normal = alpha * n1 + beta * n2 + gamma * n3;
-        isect.hitPoint.texCoord = alpha * tex1 + beta * tex2 + gamma * tex3;
-        return true;
-    } else {
+    vec3 q = cross(offset, edge1);
+    float gamma = dot(ray.direction, q) * inverseDeterminant;
+    if (gamma < 0.0 || beta + gamma > 1.0) {
         return false;
     }
-
-    // vec3 n = normalize(cross(e1, e2));
-    // if (abs(dot(n, dir)) < 1e-4f) {
-    //     return false;
-    // }
-    //
-    // float d = dot(n, p1);
-    // float tHit = (d - dot(n, o)) / dot(n, dir);
-    // if (tHit < 0 || tHit >= ray.tMax) {
-    //     return false;
-    // }
-    //
-    // vec3 q = getHitPoint(ray, tHit);
-    // float area = dot(cross(e1, e2), n);
-    // float alpha = dot(cross(p3 - p2, q - p2), n) / area;
-    // float beta = dot(cross(q - p1, p3 - p1), n) / area;
-    // float gamma = dot(cross(p2 - p1, q - p1), n) / area;
-    // if (alpha >= 0 && beta >= 0 && gamma >= 0) {
-    //     ray.tMax = tHit;
-    //     isect.hitPoint.position = q;
-    //     isect.hitPoint.normal = normalize(alpha * n1 + beta * n2 + gamma * n3);
-    //     if (dot(n, isect.hitPoint.normal) < 0) {
-    //         isect.hitPoint.normal = n;
-    //     }
-    //     isect.hitPoint.texCoord = alpha * tex1 + beta * tex2 + gamma * tex3;
-    //     return true;
-    // } else {
-    //     return false;
-    // }
+    float t = dot(edge2, q) * inverseDeterminant;
+    if (t <= Epsilon || t >= ray.tMax) {
+        return false;
+    }
+    ray.tMax = t;
+    hitPosition = getHitPoint(ray, t);
+    vec3 interpolatedNormal = (1.0 - beta - gamma) * a.normal + beta * b.normal + gamma * c.normal;
+    hitNormal = normalize(dot(interpolatedNormal, interpolatedNormal) > 0.0
+                              ? interpolatedNormal
+                              : cross(edge1, edge2));
+    return true;
     /**************************************** TODO END *******************************************/
 }
 
@@ -738,7 +613,7 @@ vec3 uniformSampleHemiSphere(vec2 u) {
     return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, z);
 }
 
-vec3 cosineWeightedSampleHeimiSphere(vec2 u) {
+vec3 cosineWeightedSampleHemisphere(vec2 u) {
     float sinTheta = sqrt(u.x);
     float cosTheta = sqrt(1.0 - sinTheta * sinTheta);
     float phi = 2.0 * Pi * u.y;
@@ -756,89 +631,91 @@ vec3 uniformSampleSphere(vec2 u) {
 
 // material
 float fresnelSchlick(float cosTheta, float ior) {
+    cosTheta = clamp(cosTheta, 0.0, 1.0);
     float r0 = (1.0 - ior) / (1.0 + ior);
     r0 = r0 * r0;
 
     return r0 + (1.0 - r0) * pow(1.0 - cosTheta, 5.0);
 }
 
-bool lambertianScatterFunction(inout Ray ray, inout Interaction isect) {
-    // TODO: Generate a diffuse bounce for the Lambertian material.
-    // Hint: Sample the cosine-weighted hemisphere around the hit normal.
+bool lambertianScatterFunction(inout Ray ray, in Hit hit, in Material material, inout uint rngState) {
+    // TODO: Generate the next ray for a Lambertian material.
+    // Hint: Update `ray.origin` and `ray.direction` using a cosine-weighted sample.
     /*************************************** TODO BEGIN ******************************************/
     // return false;
 
-    LocalCoord localCoord = createLocalCoord(isect.hitPoint.normal);
-    vec3 sampleDir = cosineWeightedSampleHeimiSphere(rngGetRandom2D());
-    ray.o = isect.hitPoint.position + Epsilon * isect.hitPoint.normal;
-    ray.dir = normalize(toWorld(localCoord, sampleDir));
+    vec3 normal = normalize(hit.normal);
+    LocalCoord localCoord = createLocalCoord(normal);
+    vec3 sampleDirection = cosineWeightedSampleHemisphere(randomVec2(rngState));
+    ray.origin = hit.position + Epsilon * normal;
+    ray.direction = normalize(toWorld(localCoord, sampleDirection));
     ray.tMax = INFINITY;
 
-    return dot(ray.dir, isect.hitPoint.normal) > 0.0;
+    return dot(ray.direction, normal) > 0.0;
     /**************************************** TODO END *******************************************/
 }
 
-bool metalScatterFunction(inout Ray ray, inout Interaction isect) {
-    // TODO: Generate a fuzzy reflection for the metal material.
-    // Hint: Use `isect.material.fuzz` to perturb the reflected direction.
+bool metalScatterFunction(inout Ray ray, in Hit hit, in Material material, inout uint rngState) {
+    // TODO: Generate the next ray for a metal material.
+    // Hint: Use `material.fuzz` to perturb the reflected direction and update the ray.
     /*************************************** TODO BEGIN ******************************************/
     // return false;
 
-    vec3 reflectDir = reflect(ray.dir, isect.hitPoint.normal);
-    LocalCoord localCoord = createLocalCoord(reflectDir);
-    vec3 sampleDir = cosineWeightedSampleHeimiSphere(rngGetRandom2D());
-    ray.o = isect.hitPoint.position + Epsilon * isect.hitPoint.normal;
-    ray.dir = normalize(reflectDir + isect.material.fuzz * toWorld(localCoord, sampleDir));
+    vec3 normal = normalize(hit.normal);
+    vec3 reflection = reflect(ray.direction, normal);
+    LocalCoord localCoord = createLocalCoord(reflection);
+    vec3 sampleDirection = cosineWeightedSampleHemisphere(randomVec2(rngState));
+    ray.origin = hit.position + Epsilon * normal;
+    ray.direction = normalize(material.fuzz * toWorld(localCoord, sampleDirection) + reflection);
     ray.tMax = INFINITY;
 
-    return dot(ray.dir, isect.hitPoint.normal) > 0.0;
+    return dot(ray.direction, normal) > 0.0;
     /**************************************** TODO END *******************************************/
 }
 
-void dielectricScatterFunction(inout Ray ray, inout Interaction isect) {
-    // TODO: Choose reflection or refraction for the dielectric material.
-    // Hint: Account for total internal reflection and Fresnel reflectance.
+void dielectricScatterFunction(inout Ray ray, in Hit hit, in Material material, inout uint rngState) {
+    // TODO: Generate the next ray for a dielectric material.
+    // Hint: Choose reflection or refraction using Fresnel reflectance and total internal reflection.
     /*************************************** TODO BEGIN ******************************************/
     // return;
 
-    vec3 wi = normalize(ray.dir);
-    vec3 n = normalize(isect.hitPoint.normal);
-    float cosTheta = dot(wi, n);
-    float ior = cosTheta > 0.0 ? isect.material.ior : 1.0 / isect.material.ior;
-    n = cosTheta > 0.0 ? -n : n;
-    cosTheta = cosTheta > 0.0 ? isect.material.ior * cosTheta : -cosTheta;
-    vec3 refractDir = refract(wi, n, ior);
-    bool isReflect = (refractDir == vec3(0.0));
-    if (isReflect || fresnelSchlick(cosTheta, isect.material.ior) > rngGetRandom1D()) {
-        ray.o = isect.hitPoint.position + Epsilon * n;
-        ray.dir = normalize(reflect(wi, n));
+    vec3 normal = normalize(hit.normal);
+    vec3 facingNormal = normal;
+    float cosine = dot(ray.direction, normal);
+    float eta = cosine > 0.0 ? material.ior : 1.0 / material.ior;
+    if (cosine > 0.0) {
+        facingNormal = -normal;
+    }
+    vec3 refraction = refract(ray.direction, facingNormal, eta);
+    float fresnel = fresnelSchlick(cosine > 0.0 ? material.ior * cosine : -cosine, material.ior);
+    if (dot(refraction, refraction) == 0.0 || fresnel > randomFloat(rngState)) {
+        ray.origin = hit.position + Epsilon * facingNormal;
+        ray.direction = normalize(reflect(ray.direction, facingNormal));
     } else {
-        ray.o = isect.hitPoint.position - Epsilon * n;
-        ray.dir = normalize(refractDir);
+        ray.origin = hit.position - Epsilon * facingNormal;
+        ray.direction = normalize(refraction);
     }
 
     ray.tMax = INFINITY;
     /**************************************** TODO END *******************************************/
 }
 
-void rngInit() {
-    rngState = texture(oldRngState, screenTexCoord).r;
-}
-
-float rngGetRandom1D() {
+float randomFloat(inout uint rngState) {
     rngState ^= (rngState << 13);
     rngState ^= (rngState >> 17);
     rngState ^= (rngState << 5);
     return min(FloatOneMinusEpsilon, float(rngState) * (1.0 / 4294967296.0));
 }
 
-vec2 rngGetRandom2D() {
-    return vec2(rngGetRandom1D(), rngGetRandom1D());
+vec2 randomVec2(inout uint rngState) {
+    float x = randomFloat(rngState);
+    float y = randomFloat(rngState);
+    return vec2(x, y);
 }
 
-LocalCoord createLocalCoord(inout vec3 n) {
+LocalCoord createLocalCoord(in vec3 normal) {
     LocalCoord res;
-    res.n = normalize(n);
+    res.n = normalize(normal);
     if (abs(res.n.x) > abs(res.n.y)) {
         res.s = normalize(vec3(-res.n.z, 0.0, res.n.x));
     }
@@ -903,30 +780,30 @@ void getSphereData(sampler2D data, int idx, out Sphere sphere) {
     sphere.radius = v.w;
 }
 
-void getTriangleIndexData(highp isampler2D data, int idx, out TriangleIndex triIdx) {
+void getTriangleIndexData(highp isampler2D data, int idx, out Triangle triangle) {
     ivec3 v = texture(data, getISampleIdx(data, idx)).xyz;
-    triIdx.v[0] = v.x;
-    triIdx.v[1] = v.y;
-    triIdx.v[2] = v.z;
+    triangle.v[0] = v.x;
+    triangle.v[1] = v.y;
+    triangle.v[2] = v.z;
 }
 
-void getTriangleData(sampler2D data, inout TriangleIndex idx, out Triangle triangle) {
+void getTriangleData(sampler2D data, Triangle triangle, out TriangleData triangleData) {
     vec4 v[2];
     for (int i = 0; i < 3; ++i) {
-        int vid = idx.v[i] * 2;
+        int vid = triangle.v[i] * 2;
         getVec4FromTexture(data, getSampleIdx(data, vid), v[0]);
         getVec4FromTexture(data, getSampleIdx(data, vid + 1), v[1]);
-        triangle.v[i].position = v[0].xyz;
-        triangle.v[i].normal = vec3(v[0].w, v[1].x, v[1].y);
-        triangle.v[i].texCoord = v[1].zw;
+        triangleData.vertices[i].position = v[0].xyz;
+        triangleData.vertices[i].normal = vec3(v[0].w, v[1].x, v[1].y);
+        triangleData.vertices[i].texCoord = v[1].zw;
     }
 }
 
 void getPrimitiveData(highp isampler2D data, int idx, out Primitive primitive) {
     ivec3 v = texture(data, getISampleIdx(data, idx)).xyz;
-    primitive.shapeType = v.x;
-    primitive.shapeIdx = v.y;
-    primitive.materialIdx = v.z;
+    primitive.type = v.x;
+    primitive.shapeIndex = v.y;
+    primitive.materialIndex = v.z;
 }
 
 void getBVHNodeData(highp sampler2D data, int idx, out BVHNode node) {
@@ -934,8 +811,8 @@ void getBVHNodeData(highp sampler2D data, int idx, out BVHNode node) {
     vec4 secondTexel;
     getVec4FromTexture(data, getSampleIdx(data, idx * 2), firstTexel);
     getVec4FromTexture(data, getSampleIdx(data, idx * 2 + 1), secondTexel);
-    node.box.pMin = firstTexel.xyz;
-    node.box.pMax = vec3(firstTexel.w, secondTexel.xy);
+    node.bounds.min = firstTexel.xyz;
+    node.bounds.max = vec3(firstTexel.w, secondTexel.xy);
     node.first = int(secondTexel.z);
     node.second = int(secondTexel.w);
 }

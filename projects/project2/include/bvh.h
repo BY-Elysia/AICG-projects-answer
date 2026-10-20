@@ -10,19 +10,21 @@
 #include "triangle.h"
 #include "vertex.h"
 
+struct BVHNode {
+    AABB bounds;
+    // Interior: first/second are left/right child node indices (second >= 0).
+    // Leaf: first is the first primitive index; second is the negative primitive count.
+    int first{0};
+    int second{0};
+
+    bool isLeaf() const noexcept {
+        return second < 0;
+    }
+};
+
 class BVH {
 public:
-    struct Node {
-        AABB bounds;
-        // Interior: first/second are left/right child node indices (second >= 0).
-        // Leaf: first is the first primitive index; second is the negative primitive count.
-        int first{0};
-        int second{0};
-
-        bool isLeaf() const noexcept {
-            return second < 0;
-        }
-    };
+    using Node = BVHNode;
 
     BVH(std::vector<Sphere> const& spheres,
         std::vector<Primitive> const& primitives,
