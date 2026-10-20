@@ -2,19 +2,19 @@
 
 ## Introduction
 
-AICG Projects extends [CG-projects](https://github.com/syby119/CG-projects) with assignments in computer graphics and AI for Graphics. The curriculum includes two traditional rendering projects and four AI-focused projects. Students implement core techniques from first principles, then explore how learned models can expand graphics workflows.
+AICG Projects extends [CG-projects](https://github.com/syby119/CG-projects) with assignments in computer graphics and AI for Graphics. The curriculum has two traditional rendering projects and two AI-focused projects. Students implement core graphics techniques from first principles, then explore how learned models can support modeling and scene reconstruction.
 
-The two traditional projects cover:
+The traditional rendering projects cover:
 
-- Rasterization.
-- Ray tracing.
+- Rasterization on the CPU and GPU.
+- Ray tracing on the CPU and GPU.
 
 The AI for Graphics projects cover:
 
-- Preparing image and 3D data for learning-based graphics tasks.
-- Training models to represent or generate visual content.
-- Combining learned methods with rendering and image processing.
-- Evaluating results through visual inspection and quantitative measures.
+- Turning natural-language requests into editable CAD models with an agent that checks and revises its results.
+- Reconstructing a self-captured scene with 3D Gaussian Splatting (3D-GS), then planning and simulating robot navigation within it.
+
+Each project calls for visual inspection and measurable tests of its results.
 
 ## Clone the repository
 
@@ -23,30 +23,18 @@ git clone https://github.com/syby119/AICG-projects-answer.git
 cd AICG-projects-answer
 ```
 
-## How to run
-
-### Preliminaries
-
-To build Projects 1 and 2, you need:
-
-- Git and CMake 3.20 or newer.
-- A C++20 compiler and standard library with `std::format` support.
-- A graphics driver with OpenGL 4.1 support.
-- [vcpkg](https://github.com/microsoft/vcpkg) to install the dependencies declared by each project's `vcpkg.json`.
-
-### Build and run
-
-Projects 1 and 2 have independent CMake projects and vcpkg manifests, so configure and build them separately. There is no repository-wide build. See the [Project 1 setup guide](projects/project1/README.md) and [Project 2 setup guide](projects/project2/README.md) for platform-specific instructions and runtime controls.
-
-Guides for Projects 3–6 will be added as those assignments become available.
-
 ## Projects
 
-| [Project 1: Software Renderer](projects/project1/) | [Project 2: Ray Tracing](projects/project2/) |
+| [Project 1: Software Renderer](projects/project1/README.md) | [Project 2: Ray Tracing](projects/project2/README.md) |
 | --- | --- |
-| ![Project 1 runtime screenshot](./screenshots/project1.png) | ![Project 2 runtime screenshot](./screenshots/project2.png) |
+| ![Project 1 runtime screenshot](screenshots/project1.png) | ![Project 2 runtime screenshot](screenshots/project2.png) |
 | Implement and compare CPU and GPU rasterizers, including clipping, triangle coverage, depth testing, and perspective-correct interpolation. | Implement CPU and GPU ray tracers that share scene data and progressively accumulate full-image samples. |
-| Project 3 | Project 4 |
-| To be added | To be added |
-| Project 5 | Project 6 |
-| To be added | To be added |
+
+| [Project 3: CAD Agent](projects/project3/README.md) | [Project 4: 3DGS Navigation](projects/project4/README.md) |
+| --- | --- |
+| ![Project 3 CAD modeling example](screenshots/project3.png) | ![Project 4 navigation example](screenshots/project4.png) |
+| Use SimpleCADAPI to turn clarified natural-language requests into verified, editable, and exportable CAD models. | Reconstruct a self-captured real scene, plan multiple collision-free routes, and simulate a robot following the selected route. |
+
+Projects 1 and 2 are independent CMake applications. Each requires Git, CMake 3.20 or newer, a C++20 compiler and standard library with `std::format`, an OpenGL 4.1 capable graphics environment, and [vcpkg](https://github.com/microsoft/vcpkg) for its dependencies. Configure and build them separately; there is no repository-wide build. Their linked guides provide setup commands and runtime controls.
+
+Projects 3 and 4 currently provide assignment specifications and example images, with no supplied implementation or fixed build command. Their guides cover the required workflow, validation, and submissions.
