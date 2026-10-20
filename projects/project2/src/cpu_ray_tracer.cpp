@@ -32,7 +32,7 @@ static glm::vec3 toWorld(glm::vec3 normal, glm::vec3 sample) {
     return sample.x * tangent + sample.y * bitangent + sample.z * normal;
 }
 
-static bool intersects(AABB const& box, Ray const& ray) {
+static bool intersectAABB(Ray const& ray, AABB const& box) {
     float near = 0.0f;
     float far = ray.tMax;
     for (int axis = 0; axis < 3; ++axis) {
@@ -53,6 +53,64 @@ static bool intersects(AABB const& box, Ray const& ray) {
             return false;
         }
     }
+    return true;
+}
+
+static bool intersectSphere(Ray& ray, Sphere const& sphere, glm::vec3& hitPosition, glm::vec3& hitNormal) {
+    // TODO: Perform ray-sphere intersection
+    // Hint: Do not forget to modifiy ray.tMax
+    auto const offset = ray.origin - sphere.position;
+    auto const halfB = glm::dot(offset, ray.direction);
+    auto const c = glm::dot(offset, offset) - sphere.radius * sphere.radius;
+    auto const discriminant = halfB * halfB - c;
+    if (discriminant < 0.0f) {
+        return false;
+    }
+    auto const root = std::sqrt(discriminant);
+    auto t = -halfB - root;
+    if (t <= kEpsilon) {
+        t = -halfB + root;
+    }
+    if (t <= kEpsilon || t >= ray.tMax) {
+        return false;
+    }
+    ray.tMax = t;
+    hitPosition = ray.at(t);
+    hitNormal = glm::normalize(hitPosition - sphere.position);
+    return true;
+}
+
+static bool intersectTriangle(
+    Ray& ray, Vertex const& a, Vertex const& b, Vertex const& c, glm::vec3& hitPosition, glm::vec3& hitNormal) {
+    // TODO: Perform ray-triangle intersection
+    // Hint: Do not forget to modifiy ray.tMax
+    auto const edge1 = b.position - a.position;
+    auto const edge2 = c.position - a.position;
+    auto const p = glm::cross(ray.direction, edge2);
+    auto const determinant = glm::dot(edge1, p);
+    if (std::abs(determinant) < 1e-8f) {
+        return false;
+    }
+    auto const inverseDeterminant = 1.0f / determinant;
+    auto const offset = ray.origin - a.position;
+    auto const beta = glm::dot(offset, p) * inverseDeterminant;
+    if (beta < 0.0f || beta > 1.0f) {
+        return false;
+    }
+    auto const q = glm::cross(offset, edge1);
+    auto const gamma = glm::dot(ray.direction, q) * inverseDeterminant;
+    if (gamma < 0.0f || beta + gamma > 1.0f) {
+        return false;
+    }
+    auto const t = glm::dot(edge2, q) * inverseDeterminant;
+    if (t <= kEpsilon || t >= ray.tMax) {
+        return false;
+    }
+    ray.tMax = t;
+    hitPosition = ray.at(t);
+    auto const interpolatedNormal = (1.0f - beta - gamma) * a.normal + beta * b.normal + gamma * c.normal;
+    hitNormal = glm::normalize(glm::dot(interpolatedNormal, interpolatedNormal) > 0.0f ? interpolatedNormal
+                                                                                       : glm::cross(edge1, edge2));
     return true;
 }
 
@@ -118,57 +176,18 @@ void CpuRayTracer::render(glm::mat4 const& cameraToWorld, glm::mat4 const& raste
 bool CpuRayTracer::intersectPrimitive(Ray& ray, Primitive const& primitive, Hit& hit) const {
     if (primitive.type == Primitive::Type::Sphere) {
         auto const& sphere = m_scene->spheres()[primitive.shapeIndex];
-        auto const offset = ray.origin - sphere.position;
-        auto const halfB = glm::dot(offset, ray.direction);
-        auto const c = glm::dot(offset, offset) - sphere.radius * sphere.radius;
-        auto const discriminant = halfB * halfB - c;
-        if (discriminant < 0.0f) {
+        if (!intersectSphere(ray, sphere, hit.position, hit.normal)) {
             return false;
         }
-        auto const root = std::sqrt(discriminant);
-        auto t = -halfB - root;
-        if (t <= kEpsilon) {
-            t = -halfB + root;
-        }
-        if (t <= kEpsilon || t >= ray.tMax) {
-            return false;
-        }
-        ray.tMax = t;
-        hit.position = ray.at(t);
-        hit.normal = glm::normalize(hit.position - sphere.position);
     }
     else {
         auto const& triangle = m_scene->triangles()[primitive.shapeIndex];
         auto const& a = m_scene->vertices()[triangle.v[0]];
         auto const& b = m_scene->vertices()[triangle.v[1]];
         auto const& c = m_scene->vertices()[triangle.v[2]];
-        auto const edge1 = b.position - a.position;
-        auto const edge2 = c.position - a.position;
-        auto const p = glm::cross(ray.direction, edge2);
-        auto const determinant = glm::dot(edge1, p);
-        if (std::abs(determinant) < 1e-8f) {
+        if (!intersectTriangle(ray, a, b, c, hit.position, hit.normal)) {
             return false;
         }
-        auto const inverseDeterminant = 1.0f / determinant;
-        auto const offset = ray.origin - a.position;
-        auto const beta = glm::dot(offset, p) * inverseDeterminant;
-        if (beta < 0.0f || beta > 1.0f) {
-            return false;
-        }
-        auto const q = glm::cross(offset, edge1);
-        auto const gamma = glm::dot(ray.direction, q) * inverseDeterminant;
-        if (gamma < 0.0f || beta + gamma > 1.0f) {
-            return false;
-        }
-        auto const t = glm::dot(edge2, q) * inverseDeterminant;
-        if (t <= kEpsilon || t >= ray.tMax) {
-            return false;
-        }
-        ray.tMax = t;
-        hit.position = ray.at(t);
-        auto const interpolatedNormal = (1.0f - beta - gamma) * a.normal + beta * b.normal + gamma * c.normal;
-        hit.normal = glm::normalize(glm::dot(interpolatedNormal, interpolatedNormal) > 0.0f ? interpolatedNormal
-                                                                                            : glm::cross(edge1, edge2));
     }
 
     hit.materialIndex = primitive.materialIndex;
@@ -176,14 +195,14 @@ bool CpuRayTracer::intersectPrimitive(Ray& ray, Primitive const& primitive, Hit&
 }
 
 bool CpuRayTracer::intersect(Ray& ray, Hit& hit) const {
-    std::array<int, 64> stack{};
+    std::array<int, 64> stack;
     size_t stackSize = 0;
     int nodeIndex = 0;
     bool found = false;
 
     while (true) {
         auto const& node = m_scene->nodes()[nodeIndex];
-        if (intersects(node.bounds, ray)) {
+        if (intersectAABB(ray, node.bounds)) {
             if (node.isLeaf()) {
                 for (int i = 0; i < -node.second; ++i) {
                     found |= intersectPrimitive(ray, m_scene->primitives()[node.first + i], hit);
@@ -200,6 +219,7 @@ bool CpuRayTracer::intersect(Ray& ray, Hit& hit) const {
         }
         nodeIndex = stack[--stackSize];
     }
+
     return found;
 }
 
@@ -208,13 +228,18 @@ glm::vec3 CpuRayTracer::trace(Ray ray, uint32_t& rngState) const {
     for (int step = 0; step < kMaxTraceDepth; ++step) {
         Hit hit;
         if (!intersect(ray, hit)) {
+            // TODO: sample the skybox color for the escaping ray
             return color * (m_skybox ? m_skybox->sample(ray.direction) : glm::vec3{0.0f});
         }
         auto const& material = m_scene->materials()[hit.materialIndex];
         color *= material.albedo;
         auto const normal = glm::normalize(hit.normal);
 
+        // TODO: Change the outgoing ray behavior based on the material
+        // Hint: ray.origin = ...
+        // Hint: ray.direction = ...
         if (material.type == Material::Type::Lambertian) {
+            // TODO: Reflection for lambert material
             ray.origin = hit.position + kEpsilon * normal;
             ray.direction = glm::normalize(toWorld(normal, cosineHemisphere(rngState)));
             if (glm::dot(ray.direction, normal) <= 0.0f) {
@@ -222,6 +247,7 @@ glm::vec3 CpuRayTracer::trace(Ray ray, uint32_t& rngState) const {
             }
         }
         else if (material.type == Material::Type::Metal) {
+            // TODO: Reflection for metal material
             auto const reflection = glm::reflect(ray.direction, normal);
             ray.origin = hit.position + kEpsilon * normal;
             ray.direction =
@@ -231,6 +257,7 @@ glm::vec3 CpuRayTracer::trace(Ray ray, uint32_t& rngState) const {
             }
         }
         else {
+            // TODO: Refraction for metal material
             auto facingNormal = normal;
             auto const cosine = glm::dot(ray.direction, normal);
             auto const eta = cosine > 0.0f ? material.ior : 1.0f / material.ior;
@@ -252,7 +279,10 @@ glm::vec3 CpuRayTracer::trace(Ray ray, uint32_t& rngState) const {
                 ray.direction = glm::normalize(refraction);
             }
         }
+
+        // Reset the tMax of the ray for the next trace
         ray.tMax = std::numeric_limits<float>::max();
     }
+
     return color;
 }
