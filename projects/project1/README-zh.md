@@ -134,6 +134,7 @@ CPU/GPU 对比使用相同的模型姿态、相机、灯光和分辨率。固定
     ├── CMakeLists.txt            构建入口
     ├── vcpkg.json                依赖清单
     ├── cmake/sync_assets.cmake   运行资源同步脚本
+    ├── docs/images/              README 插图
     ├── include/                  数据类型与类声明
     ├── src/                      C++ 实现
     └── assets/

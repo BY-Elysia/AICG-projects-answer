@@ -134,6 +134,7 @@ repository root/
     ├── CMakeLists.txt            Build entry point
     ├── vcpkg.json                Dependency manifest
     ├── cmake/sync_assets.cmake   Runtime asset synchronization
+    ├── docs/images/              README illustrations
     ├── include/                  Data types and class declarations
     ├── src/                      C++ implementations
     └── assets/

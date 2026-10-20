@@ -141,6 +141,7 @@ repository root/
     ├── CMakeLists.txt            Build entry point
     ├── vcpkg.json                Dependency manifest
     ├── cmake/sync_assets.cmake   Runtime asset synchronization
+    ├── docs/images/              README illustrations
     ├── include/                  Geometry, scene, material, and renderer types
     ├── src/                      C++ implementations
     └── assets/

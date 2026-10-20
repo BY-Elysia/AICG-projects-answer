@@ -141,6 +141,7 @@ repository root/
     ├── CMakeLists.txt            构建入口
     ├── vcpkg.json                依赖清单
     ├── cmake/sync_assets.cmake   运行资源同步
+    ├── docs/images/              README 配图
     ├── include/                  几何、场景、材质与渲染器类型
     ├── src/                      C++ 实现
     └── assets/
