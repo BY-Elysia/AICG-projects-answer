@@ -59,8 +59,14 @@ target_include_directories(ray_tracer PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/../../base
     ${Stb_INCLUDE_DIR})
 target_link_libraries(ray_tracer PRIVATE glad::glad glfw glm::glm tinyobjloader::tinyobjloader imgui::imgui)
-add_custom_command(TARGET ray_tracer POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets
-        $<TARGET_FILE_DIR:ray_tracer>/assets
+
+# Keep runtime shaders linked to their sources; copy other assets as before.
+add_custom_target(ray_tracer_assets
+    COMMAND ${CMAKE_COMMAND}
+        "-DSOURCE_ASSET_DIR=${CMAKE_CURRENT_LIST_DIR}/assets"
+        "-DOUTPUT_ASSET_DIR=$<TARGET_FILE_DIR:ray_tracer>/assets"
+        -P "${CMAKE_CURRENT_LIST_DIR}/cmake/sync_assets.cmake"
+    DEPENDS ${PROJECT_ASSETS} "${CMAKE_CURRENT_LIST_DIR}/cmake/sync_assets.cmake"
     VERBATIM
 )
+add_dependencies(ray_tracer ray_tracer_assets)
