@@ -86,7 +86,7 @@ clipAgainst(std::array<ClipVertex, kMaxClippedPolygonVertices>& polygon, size_t&
                 clipped[clippedCount++] = {
                     glm::mix(previous.clip, current.clip, t),
                     glm::mix(previous.worldPosition, current.worldPosition, t),
-                    glm::normalize(glm::mix(previous.normal, current.normal, t)),
+                    glm::mix(previous.normal, current.normal, t),
                     glm::mix(previous.uv, current.uv, t)
                 };
             }
