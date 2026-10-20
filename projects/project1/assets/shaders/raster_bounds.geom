@@ -61,7 +61,7 @@ int clipAgainst(inout ClipVertex polygon[9], int count, vec4 plane) {
             float t = previousSide / (previousSide - currentSide);
             clipped[clippedCount].clip = mix(previous.clip, current.clip, t);
             clipped[clippedCount].worldPosition = mix(previous.worldPosition, current.worldPosition, t);
-            clipped[clippedCount].normal = normalize(mix(previous.normal, current.normal, t));
+            clipped[clippedCount].normal = mix(previous.normal, current.normal, t);
             clipped[clippedCount].uv = mix(previous.uv, current.uv, t);
             ++clippedCount;
         }
