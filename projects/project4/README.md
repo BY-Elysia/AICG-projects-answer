@@ -2,28 +2,51 @@
 
 English | [简体中文](README-zh.md)
 
-Capture and reconstruct a real environment with 3D Gaussian Splatting (3D-GS). Load the reconstruction into your own simulation or visualization program, add a robot dog, a goal, and obstacles, then plan and execute a collision-free route to the goal. The simulation must be runnable and reproducible.
+## Objective
 
-![Example robot navigation in a reconstructed scene](../../screenshots/project4.png)
+Collect data from and reconstruct a real environment. Add a robot dog, goal, and obstacles to the 3D Gaussian Splatting (3D-GS) scene. Write a program that generates multiple candidate trajectories, selects one, and simulates the robot moving around obstacles to reach the goal. The navigation simulation must be runnable and reproducible.
 
-The image illustrates the assignment. This directory currently contains the assignment guide, with no supplied implementation or build configuration.
+## Basic requirements
 
-## Required workflow
+- **Scene reconstruction:** Capture data with course equipment or another suitable device, investigate a public 3D-GS method, reconstruct the scene, and load the result into your own simulation or visualization program.
+- **Scene configuration:** Write scripts to place the robot model, start, goal, and obstacles. Support configuration changes through parameters or interaction. Include at least one case where an obstacle blocks the straight line from start to goal.
+- **Trajectory planning:** In a test setting with a feasible route, automatically generate at least three visibly different collision-free candidate trajectories. Show them, compare metrics such as length and safety clearance, and explain the choice of the selected route.
+- **Motion execution:** Write logic that continuously updates the robot's position and orientation as it follows the selected trajectory around obstacles to the goal. Define an arrival test that accounts for robot size. Merely drawing a route or playing a prerecorded animation is insufficient.
+- **Testing and analysis:** Test at least three configurations with different starts, goals, or obstacle layouts. Replan after changing the configuration. Record planning time, route length, arrival error, and collisions, then analyze the main problems and possible improvements.
 
-1. **Capture and reconstruct a scene.** Collect data from a real environment yourself, investigate a public 3D-GS method, reconstruct the scene, and load it into your simulation or visualization program. You may use course equipment or another suitable capture device. A public dataset, simulated data, or a ready-made scene supplied by someone else cannot replace your own captured scene.
-2. **Configure the simulation.** Write scripts to place the robot model, start, goal, and obstacles. Make the configuration editable through parameters or interaction. Include at least one case where an obstacle blocks the straight line from start to goal. Keep map, robot, and reconstructed-scene coordinates consistent.
-3. **Plan and compare routes.** For a feasible test setting, automatically generate at least three visibly different collision-free candidate routes. Show them, compare length and safety clearance, and explain why one is selected. Account for the robot's size when checking collisions.
-4. **Execute the selected route.** Write logic that continuously updates the robot's position and orientation as it follows the selected route around obstacles. Define an arrival condition that accounts for the robot's size, and show the robot reaching the goal. Drawing a route or playing a prerecorded animation alone does not satisfy this requirement.
-5. **Test and analyze.** Test at least three configurations with different starts, goals, or obstacle layouts. Replan after each change. Record planning time, route length, arrival error, and collision outcomes; analyze the main problems and possible improvements.
+## Advanced requirements
 
-## Tools and scope
+The basic task may use planar motion, a known robot pose, and manually marked traversable areas. Simplified collision geometry may represent the main scene obstacles and any added obstacles; keep the map, robot, and reconstructed-scene coordinates consistent. Motion may be simulated by updating position and orientation. Robot gait control and full SLAM are not required.
 
-- Public reconstruction code, rendering tools, and existing robot models are allowed. The basic task requires your own core route-planning and trajectory-execution logic.
-- A planar motion model, known robot pose, manually marked traversable areas, and simplified collision geometry for major scene obstacles and added obstacles are acceptable. Leg gait control and full SLAM are not required.
-- Advanced directions include automatic map creation, fuller mapping and navigation, and dynamic obstacle avoidance. Existing navigation frameworks may be used for advanced work, but identify and validate the modules you developed or improved. Running an existing demonstration alone does not satisfy the assignment.
+You may use public reconstruction code, rendering tools, and existing robot models. The basic task requires your own core path-planning and trajectory-execution logic. Advanced directions include automatic map creation, full mapping and navigation, and dynamic obstacle avoidance; open-source code or an existing navigation framework may be used. If you use such a framework, identify the modules you developed or improved and provide validation results. Merely running an existing demonstration does not complete the assignment.
+
+## Tool selection
+
+Data may be captured with the course-provided Liuxing Technology scanner or another device appropriate to the task. The reconstruction must use data that you collected in a real environment. A public dataset, simulated data, or a ready-made scene supplied by someone else cannot replace it.
 
 ## Submission
 
-Submit a description of the captured data, the reconstruction, your scripts and code, configuration and run instructions, and a navigation demonstration video. A four-to-six-page report is recommended.
+Submit a description of the captured data, the reconstructed model, your scripts and code, configuration and run instructions, and a navigation demonstration video. A four-to-six-page experimental report is recommended. The video should show scene configuration, multiple candidate trajectories, and the robot executing its route. The report should explain the algorithm choice, test results, original work, and team responsibilities.
 
-The video should show scene configuration, multiple candidate routes, and the robot executing the selected route. The report should explain the algorithm choice, tests and results, original contributions, and team responsibilities. Provide reproducible setup and execution instructions for the implementation you submit; this guide does not prescribe a particular build command.
+## Task examples
+
+### 1. Scene projection and navigation map
+
+<p align="center">
+  <img src="images/laboratory-map.png" alt="Top-down projection of a laboratory scene and its navigation grid"><br>
+  <em>Figure 1: Laboratory scene projection (left) and navigation grid map (right)</em>
+</p>
+
+### 2. Navigation planning demonstration
+
+<p align="center">
+  <img src="images/navigation-demo.gif" alt="Animated robot navigation planning and trajectory execution"><br>
+  <em>Figure 2: Navigation planning demo</em>
+</p>
+
+### 3. Capture device
+
+<p align="center">
+  <img src="images/capture-device.png" alt="Example Q9000 scene-capture device"><br>
+  <em>Figure 3: Capture device example — Q9000</em>
+</p>
