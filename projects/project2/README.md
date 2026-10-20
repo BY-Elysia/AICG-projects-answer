@@ -8,7 +8,7 @@ The assignment requires separate CPU and GPU implementations. The CPU implementa
 
 The application provides three scenes, from three material-test spheres to a scene containing many spheres and three Lucy model instances. Each renderer progressively averages one new path sample per pixel on each rendered frame.
 
-![Scene 3: spheres and three Lucy instances](docs/images/project2.png)
+![Scene 3: spheres and three Lucy instances](../../screenshots/project2.png)
 
 ## Contents
 
@@ -141,7 +141,6 @@ repository root/
     ├── CMakeLists.txt            Build entry point
     ├── vcpkg.json                Dependency manifest
     ├── cmake/sync_assets.cmake   Runtime asset synchronization
-    ├── docs/images/              README illustrations
     ├── include/                  Geometry, scene, material, and renderer types
     ├── src/                      C++ implementations
     └── assets/

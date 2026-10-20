@@ -8,7 +8,7 @@
 
 程序提供三个场景，从三个材质测试球体逐步扩展到包含大量球体和三个 Lucy 模型实例的场景。每条渲染路径在每个渲染帧中为每个像素增加一个路径样本，并逐帧更新平均结果。
 
-![场景 3：球体与三个 Lucy 模型实例](docs/images/project2.png)
+![场景 3：球体与三个 Lucy 模型实例](../../screenshots/project2.png)
 
 ## 目录
 
@@ -141,7 +141,6 @@ repository root/
     ├── CMakeLists.txt            构建入口
     ├── vcpkg.json                依赖清单
     ├── cmake/sync_assets.cmake   运行资源同步
-    ├── docs/images/              README 配图
     ├── include/                  几何、场景、材质与渲染器类型
     ├── src/                      C++ 实现
     └── assets/
