@@ -19,6 +19,10 @@ public:
 
     void render(glm::mat4 const& cameraToWorld, glm::mat4 const& rasterToCamera) override;
 
+    void setScene(std::shared_ptr<Scene const> scene) override;
+
+    void resize(uint32_t width, uint32_t height) override;
+
     gfx::Texture2D const& frame() const override {
         return *m_outFrames[m_currentReadBuffer];
     }
@@ -43,9 +47,9 @@ private:
     std::unique_ptr<gfx::Texture2D> m_bvhBuffer;
 
 private:
-    void onSceneChanged() override;
+    void uploadSceneData();
 
-    void onResize() override;
+    void createRenderTargets();
 
     void bindSceneTextures();
 

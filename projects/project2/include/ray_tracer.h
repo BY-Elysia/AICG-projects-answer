@@ -16,13 +16,13 @@ public:
 
     virtual ~RayTracer() = default;
 
-    void setScene(std::shared_ptr<Scene const> scene);
+    virtual void setScene(std::shared_ptr<Scene const> scene);
 
     void setSkybox(std::shared_ptr<Skybox const> skybox);
 
-    void resize(uint32_t width, uint32_t height);
+    virtual void resize(uint32_t width, uint32_t height) = 0;
 
-    void reset();
+    virtual void reset();
 
     virtual void render(glm::mat4 const& cameraToWorld, glm::mat4 const& rasterToCamera) = 0;
 
@@ -48,10 +48,5 @@ protected:
     uint32_t m_height{0};
     uint32_t m_completedSamples{0};
 
-protected:
-    virtual void onSceneChanged() {}
-
-    virtual void onResize() = 0;
-
-    virtual void onReset() {}
+    bool updateExtent(uint32_t width, uint32_t height) noexcept;
 };

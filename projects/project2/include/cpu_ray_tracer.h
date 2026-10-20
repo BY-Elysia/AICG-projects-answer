@@ -14,6 +14,10 @@ public:
 
     void render(glm::mat4 const& cameraToWorld, glm::mat4 const& rasterToCamera) override;
 
+    void resize(uint32_t width, uint32_t height) override;
+
+    void reset() override;
+
     gfx::Texture2D const& frame() const override {
         return *m_frame;
     }
@@ -32,9 +36,7 @@ private:
     std::unique_ptr<gfx::Texture2D> m_frame;
 
 private:
-    void onResize() override;
-
-    void onReset() override;
+    void createFrameResources();
 
     bool intersect(Ray& ray, Hit& hit) const;
 

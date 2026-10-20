@@ -58,11 +58,19 @@ static bool intersects(AABB const& box, Ray const& ray) {
 
 CpuRayTracer::CpuRayTracer(uint32_t width, uint32_t height)
     : RayTracer{width, height} {
-    onResize();
+    createFrameResources();
     reset();
 }
 
-void CpuRayTracer::onResize() {
+void CpuRayTracer::resize(uint32_t width, uint32_t height) {
+    if (!updateExtent(width, height)) {
+        return;
+    }
+    createFrameResources();
+    reset();
+}
+
+void CpuRayTracer::createFrameResources() {
     auto const count = static_cast<size_t>(m_width) * m_height;
     m_rngStates.resize(count);
     for (size_t i = 0; i < m_rngStates.size(); ++i) {
@@ -81,7 +89,8 @@ void CpuRayTracer::onResize() {
         m_average.data());
 }
 
-void CpuRayTracer::onReset() {
+void CpuRayTracer::reset() {
+    RayTracer::reset();
     std::fill(m_average.begin(), m_average.end(), glm::vec3{0.0f});
 }
 

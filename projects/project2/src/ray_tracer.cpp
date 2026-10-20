@@ -8,7 +8,6 @@ RayTracer::RayTracer(uint32_t width, uint32_t height)
 
 void RayTracer::setScene(std::shared_ptr<Scene const> scene) {
     m_scene = std::move(scene);
-    onSceneChanged();
     reset();
 }
 
@@ -17,17 +16,15 @@ void RayTracer::setSkybox(std::shared_ptr<Skybox const> skybox) {
     reset();
 }
 
-void RayTracer::resize(uint32_t width, uint32_t height) {
+bool RayTracer::updateExtent(uint32_t width, uint32_t height) noexcept {
     if (m_width == width && m_height == height) {
-        return;
+        return false;
     }
     m_width = width;
     m_height = height;
-    onResize();
-    reset();
+    return true;
 }
 
 void RayTracer::reset() {
     m_completedSamples = 0;
-    onReset();
 }

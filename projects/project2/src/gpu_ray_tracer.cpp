@@ -51,11 +51,19 @@ GpuRayTracer::GpuRayTracer(uint32_t width,
         .addressModeV = gfx::Sampler::AddressMode::ClampToEdge,
         .addressModeW = gfx::Sampler::AddressMode::ClampToEdge
     });
-    onResize();
+    createRenderTargets();
     reset();
 }
 
-void GpuRayTracer::onResize() {
+void GpuRayTracer::resize(uint32_t width, uint32_t height) {
+    if (!updateExtent(width, height)) {
+        return;
+    }
+    createRenderTargets();
+    reset();
+}
+
+void GpuRayTracer::createRenderTargets() {
     std::vector<uint32_t> rng(static_cast<size_t>(m_width) * m_height);
     for (uint32_t i = 0; i < rng.size(); ++i) {
         rng[i] = 1664525u * i + 1013904223u;
@@ -93,7 +101,12 @@ void GpuRayTracer::onResize() {
     m_currentWriteBuffer = 1;
 }
 
-void GpuRayTracer::onSceneChanged() {
+void GpuRayTracer::setScene(std::shared_ptr<Scene const> scene) {
+    RayTracer::setScene(std::move(scene));
+    uploadSceneData();
+}
+
+void GpuRayTracer::uploadSceneData() {
     std::vector<float> sphereData;
     sphereData.reserve(m_scene->spheres().size() * 4);
     for (auto const& sphere : m_scene->spheres()) {
