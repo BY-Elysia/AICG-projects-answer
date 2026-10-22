@@ -1,0 +1,10 @@
+.env
+.venv/
+.cache/
+.runtime/
+workspace/
+skills/simplecadapi/
+__pycache__/
+__marimo__/
+.pytest_cache/
+.ruff_cache/
