@@ -38,7 +38,7 @@ OpenCode 负责对话上下文和 Agent 工具调用循环，SCA 官方 Skill �
 | Python 3.12 / uv | 管理项目环境与依赖 |
 | Node.js / npm | 安装 OpenCode |
 | OpenCode 2.0.20 | 提供对话、上下文与工具执行循环 |
-| SCA 2.2.3 与官方 Skill | 提供几何能力、建模规范和编辑器 |
+| SCA 2.2.6.post2 与官方 Skill | 提供几何能力、建模规范和编辑器 |
 | 模型 API | 提供支持工具调用的大语言模型 |
 
 在 `projects/project3/` 下安装：

@@ -20,7 +20,7 @@ uv sync --python 3.12
 uv run python demo.py install
 ```
 
-第一次安装需下载 CAD 几何内核和可视化依赖，体积较大。`uv.lock` 固定 Python 依赖；SCA 固定为 2.2.3，OpenCode 固定为 2.0.20。
+第一次安装需下载 CAD 几何内核和可视化依赖，体积较大。`uv.lock` 固定 Python 依赖；SCA 固定为 2.2.6.post2，OpenCode 固定为 2.0.20。
 
 安装命令完成三件事：将 OpenCode 下载到 `.runtime/bin/`；将 SCA 自带的官方 Skill 安装到 `skills/simplecadapi/`；将 SDK 自带的 U 形支架示例复制到 `workspace/u_link/`。已有示例目录不覆盖。
 
