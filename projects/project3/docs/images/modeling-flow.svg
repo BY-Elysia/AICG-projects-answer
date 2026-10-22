@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="1000" viewBox="0 0 1100 1000" role="img" aria-labelledby="title desc">
+<title id="title">CAD Agent 建模流程</title><desc id="desc">用户输入需求后加载 Skill，Agent 按需澄清、编写代码、执行模型及检查几何。执行或检查失败时修改代码，符合要求后导出。</desc>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#53657b"/></marker></defs>
+<rect width="1100" height="1000" fill="#ffffff"/>
+<style>text{font-family:"Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif;fill:#1b2d42} .heading{font-size:23px;font-weight:600} .detail{font-size:18px;fill:#465b73} .edge{fill:none;stroke:#53657b;stroke-width:2;marker-end:url(#arrow)} .note{font-size:17px;fill:#465b73}</style>
+<rect x="315" y="35" width="470" height="90" rx="12" fill="#f0f5fa" stroke="#7f9ab5"/>
+<text x="550" y="70" text-anchor="middle" class="heading">输入建模需求</text><text x="550" y="101" text-anchor="middle" class="detail">结构、尺寸、单位与位置关系</text>
+<path class="edge" d="M550 125 V163"/>
+<rect x="315" y="170" width="470" height="90" rx="12" fill="#f0f5fa" stroke="#7f9ab5"/>
+<text x="550" y="205" text-anchor="middle" class="heading">加载 SCA 官方 Skill</text><text x="550" y="236" text-anchor="middle" class="detail">选择工作流并查阅相关 API</text>
+<path class="edge" d="M550 260 V298"/>
+<rect x="315" y="305" width="470" height="90" rx="12" fill="#f0f5fa" stroke="#7f9ab5"/>
+<text x="550" y="340" text-anchor="middle" class="heading">Agent 判断下一步</text><text x="550" y="371" text-anchor="middle" class="detail">结合需求、上下文与工具反馈</text>
+<path class="edge" d="M550 395 V433"/>
+<rect x="315" y="440" width="470" height="90" rx="12" fill="#f0f5fa" stroke="#7f9ab5"/>
+<text x="550" y="475" text-anchor="middle" class="heading">编写或修改参数化代码</text><text x="550" y="506" text-anchor="middle" class="detail">保留未修改的参数与结构</text>
+<path class="edge" d="M550 530 V568"/>
+<rect x="315" y="575" width="470" height="90" rx="12" fill="#f0f5fa" stroke="#7f9ab5"/>
+<text x="550" y="610" text-anchor="middle" class="heading">执行 SCA 模型</text><text x="550" y="641" text-anchor="middle" class="detail">读取执行结果与错误信息</text>
+<path class="edge" d="M550 665 V703"/>
+<rect x="315" y="710" width="470" height="90" rx="12" fill="#f0f5fa" stroke="#7f9ab5"/>
+<text x="550" y="745" text-anchor="middle" class="heading">查看模型并检查实际几何</text><text x="550" y="776" text-anchor="middle" class="detail">核对尺寸、孔位、壁厚与有效性</text>
+<path class="edge" d="M550 800 V838"/>
+<rect x="315" y="845" width="470" height="90" rx="12" fill="#f0f5fa" stroke="#7f9ab5"/>
+<text x="550" y="880" text-anchor="middle" class="heading">导出模型与记录</text><text x="550" y="911" text-anchor="middle" class="detail">保存 notebook、STEP 和检查结果</text>
+<rect x="20" y="305" width="240" height="90" rx="12" fill="#fff7e9" stroke="#bd9c61"/>
+<text x="140" y="340" text-anchor="middle" class="heading">向用户提问</text><text x="140" y="370" text-anchor="middle" class="detail">补充缺失或冲突条件</text>
+<path class="edge" d="M315 330 H268"/><text x="284" y="310" text-anchor="middle" class="note">不明确</text>
+<path class="edge" d="M140 395 V425 H290 V370 H307"/><text x="160" y="452" text-anchor="middle" class="note">用户回答后继续</text>
+<path class="edge" d="M785 620 H880 V475 H793"/><text x="896" y="565" class="note">执行错误</text>
+<path class="edge" d="M785 755 H1025 V450 H793"/><text x="895" y="790" class="note">检查未通过</text>
+<text x="567" y="832" class="note">符合要求</text>
+<text x="550" y="975" text-anchor="middle" class="note">Agent 根据反馈选择工具，必要时重复查阅、修改和检查。</text>
+</svg>

@@ -1,5 +1,7 @@
 # Project 3: CAD Agent
 
+> 本地 CAD Agent 最小实现：[项目说明](README_DEMO.md) · [安装与启动](SETUP_GUIDE.md)。
+
 English | [简体中文](README-zh.md)
 
 ## Objective
