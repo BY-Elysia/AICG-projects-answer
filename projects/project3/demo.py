@@ -45,7 +45,7 @@ def configure():
         "model": "gateway/" + env["LLM_MODEL"],
         "skills": [str(ROOT / "skills")],
         "default_agent": "cad-demo",
-        "agents": {"cad-demo": {"mode": "primary", "system": (ROOT / "AGENTS.md").read_text()}},
+        "agents": {"cad-demo": {"mode": "primary", "system": (ROOT / "AGENTS.md").read_text(encoding="utf-8")}},
         "permissions": [
             {"action": "skill", "resource": "*", "effect": "allow"},
             {"action": "question", "resource": "*", "effect": "allow"},
@@ -53,7 +53,7 @@ def configure():
     }
     folder = Path(env["XDG_CONFIG_HOME"]) / "opencode"
     folder.mkdir(parents=True, exist_ok=True)
-    (folder / "opencode.json").write_text(json.dumps(config, ensure_ascii=False, indent=2))
+    (folder / "opencode.json").write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
     WORKSPACE.mkdir(exist_ok=True)
     return env
 

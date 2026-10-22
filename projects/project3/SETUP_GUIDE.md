@@ -58,17 +58,19 @@ uv run python demo.py agent
 
 Agent 使用 **OpenCode 原生终端界面**。启动器使用独立的原生服务和项目内 XDG 目录，避免混用其它项目的配置。依照 OpenCode 提示处理工具权限。
 
-可以先输入：
+### 第一次运行：最小建模测试
 
-> 加载 simplecadapi Skill，查看编辑器中打开的 U 形支架及其参数，解释它的建模步骤。先不要修改。
+在 OpenCode 输入下面这段需求（不要输入到普通 shell 命令行）：
 
-然后输入：
+> 加载 simplecadapi Skill，在 workspace/box_demo/ 新建参数化 notebook box.py。制作长方体：X 长 40 mm、Y 宽 30 mm、Z 高 5 mm，XY 中心在原点，底面 z=0，无孔无圆角，仅教学几何展示。尺寸已明确，直接建模。实际执行 sca run，导出 model.scadpkg 和 model.step；重新读取 STEP，检查一个有效实体、外形尺寸 40×30×5 mm、体积 6000 mm³。所有产物保存在 box_demo/ 内，不修改已有示例。
 
-> 把这个支架的一个可调尺寸改大 5 mm，其余保持不变。先读取当前参数，用编辑器协作方式修改，运行并检查结果。
+按终端提示允许本任务所需的文件读取、写入和命令执行，等待 Agent 给出实际检查结果。首次加载 Skill 和模型回复可能需要几分钟。
 
-也可以从零描述一个简单零件：
+完成后，在浏览器左侧 **WORKSPACE** 选择 `box_demo/box.py`（列表通常显示 `box`），等待显示 **1 part** 和长方体。新文件未出现时刷新页面；必要时点击 **RUN ALL**；视图太大或太小时点击 **FIT** 或滚轮缩放。打开的是 `box.py` notebook，不是 STEP 文件。编辑器仍显示 U 形支架时，需要手动切换 notebook。
 
-> 制作一块 80×50×5 mm 的矩形板，中央一个直径 8 mm 的通孔，单位 mm。保存参数化 notebook 并导出 STEP。
+通过标准：`workspace/box_demo/` 包含 `box.py`、`model.scadpkg`、`model.step`；Agent 报告上述几何检查通过；编辑器能显示长方体。仅收到代码或文字回答不算完成。
+
+这一次生成、执行、导出和预览即可完成最小 demo。课程中的带孔板、圆筒及参数修改可在此基础上继续尝试。
 
 Agent 直接使用原生文件和命令行工具：读取 Skill → 必要时提问 → 编写/修改 notebook → 执行并读取反馈 → 修复 → 导出。编辑器打开时，Skill 指导 Agent 使用 `sca snapshot`、`sca cell` 协作，避免直接覆盖编辑器持有的文件。
 
