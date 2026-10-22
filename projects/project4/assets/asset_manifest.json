@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "purpose": "Self-contained real laboratory / Go2 kinematic navigation demo",
+  "source_project": "Trajectory_data_generate2NavDP",
+  "source_ply": {
+    "name": "test2_yup_filtered.ply",
+    "sha256": "59fc61152c91f509315472ede07ec16aea80423984b2d7665face0270a656162",
+    "size_bytes": 222848963,
+    "gaussian_count": 1358829
+  },
+  "source_las": {
+    "path": "test1.las",
+    "size_bytes": 1109551463,
+    "sha256": "a0689588bbcbd19e6f122eb2f13414d0bd7618008292183f0cef1c217fab7092",
+    "bundled": false
+  },
+  "gaussian_subset": {
+    "selection": "Union of all 240 reference camera frusta, with 12-pixel border and conservative max(0.15 m, 3 * largest Gaussian scale) padding; original order and all 41 float32 properties retained. No rescaling or random subsampling.",
+    "reference_camera_report_sha256": "f02cc1b1f91d9c4afcbee18ca5a6ab8c4ac418d50a3b56308ef83a159cbbfd1b",
+    "count": 829269,
+    "parts": [
+      "assets/scene/gaussians_00.npz",
+      "assets/scene/gaussians_01.npz",
+      "assets/scene/gaussians_02.npz"
+    ]
+  },
+  "ground_support": {
+    "path": "assets/navigation/ground_support.npz",
+    "coordinate_order": "worldX, worldZ, floor_y - worldY",
+    "floor_y": 0.9338472222222223,
+    "band_m": 0.08,
+    "voxel_size_m": 0.04,
+    "bbox_xz": [
+      [
+        -12,
+        -2
+      ],
+      [
+        1,
+        6
+      ]
+    ],
+    "point_count": 34588,
+    "method": "Actual LAS point nearest each 3D voxel center; no synthetic points."
+  },
+  "files": {
+    "assets/go2/UNITREE_LICENSE": {
+      "sha256": "84aac59fd3246e3ddc49d1387644e8fcf43b0def4f0b9fe687f372e90446df2d",
+      "size_bytes": 1558
+    },
+    "assets/go2/go2.urdf": {
+      "sha256": "8af9595e7564df294366d72013ed2be457e25d51ae0d0b4c7aa34a8a60f4e231",
+      "size_bytes": 30999
+    },
+    "assets/go2/meshes/base_m00.obj": {
+      "sha256": "cd55ec678a25f50b220a7e68984bb512cf7a2d239fbfd53f08d4bd4ec05c8dd0",
+      "size_bytes": 4890087
+    },
+    "assets/go2/meshes/base_m01.obj": {
+      "sha256": "41002105d0ba3bfc93d39aa5e03e3cf44c29bded13ebb9b7d299944f249d57f2",
+      "size_bytes": 242960
+    },
+    "assets/go2/meshes/base_m02.obj": {
+      "sha256": "2d5a7866b0cce900d1c910ba75be494c96ee09b619e496f591d53259abe37f34",
+      "size_bytes": 161221
+    },
+    "assets/go2/meshes/base_m03.obj": {
+      "sha256": "a7b1d2772b42a6309cdf321f08dd99a9234fdb8343c31cfd39dcdeaa866ec4fa",
+      "size_bytes": 363099
+    },
+    "assets/go2/meshes/base_m04.obj": {
+      "sha256": "ac0e799b999e7664c5a1bd6a72e63879042b083b75c583d229f22e4d343bd23e",
+      "size_bytes": 778655
+    },
+    "assets/go2/meshes/calf_m00.obj": {
+      "sha256": "ded9d46678de641bb35954b565ac0812dcfb00f028b3f5b2f9fa172056f5bee9",
+      "size_bytes": 186879
+    },
+    "assets/go2/meshes/calf_m01.obj": {
+      "sha256": "c574c949650140e3889df005468102cd999332695ceefd90255a15261208675f",
+      "size_bytes": 487321
+    },
+    "assets/go2/meshes/calf_mirror_m00.obj": {
+      "sha256": "826b258c1d0cb1b43f9c3b4d69aa8365e24c89fafb110fcf8eca988919b03af0",
+      "size_bytes": 187024
+    },
+    "assets/go2/meshes/calf_mirror_m01.obj": {
+      "sha256": "4931da1d4fecff88d7106fc58c9fd49b779a965dafaee39cb17a6015a593de9f",
+      "size_bytes": 487087
+    },
+    "assets/go2/meshes/foot_m00.obj": {
+      "sha256": "6bc86b4d8e4043c39fe4c8a4f597a1453c79c510d5de6ad94ea5e24452c4265e",
+      "size_bytes": 626477
+    },
+    "assets/go2/meshes/hip_m00.obj": {
+      "sha256": "63180fbb8e6ce043c7e35d28143f61f476d415a10014e92eb4da59be23e4290d",
+      "size_bytes": 1430214
+    },
+    "assets/go2/meshes/hip_m01.obj": {
+      "sha256": "48648d02d3995a754a97562409225eeacc73c64b7e92896fff61d86373c7664d",
+      "size_bytes": 1469642
+    },
+    "assets/go2/meshes/thigh_m00.obj": {
+      "sha256": "34a7aaf438a56f51acd1fdf4561755189cb6de54ad0a076ca31ad08c0ffd3086",
+      "size_bytes": 881412
+    },
+    "assets/go2/meshes/thigh_m01.obj": {
+      "sha256": "45b0b6745b42dd48ea83a30062bf50f8a496bc937909a8f77dc7da3fed81d4be",
+      "size_bytes": 1483509
+    },
+    "assets/go2/meshes/thigh_mirror_m00.obj": {
+      "sha256": "51404a9b30f5cd608b012ba4530b0cce0f4ca0fd9ce85ded676e997ee652b8e3",
+      "size_bytes": 876616
+    },
+    "assets/go2/meshes/thigh_mirror_m01.obj": {
+      "sha256": "731bae513dacb46ece8b312a47f12f51c19debd449f96b236422717ab745dca9",
+      "size_bytes": 1473492
+    },
+    "assets/navigation/ground_support.npz": {
+      "sha256": "e1ecb3520fff7e943764d05cead5526c6de0e191ba61721b3aa9c1f912b7003f",
+      "size_bytes": 247796
+    },
+    "assets/navigation/scene_manifest.json": {
+      "sha256": "e04b49ed2176344dfe1c7380bda9573c73c1134135dad00084bcf0fecc942069",
+      "size_bytes": 1674
+    },
+    "assets/navigation/scene_model.npz": {
+      "sha256": "9e8f1c9af6e0d4abe23871be388598e7d28f1c4ff476cd5326aace11a6aad3e6",
+      "size_bytes": 456536
+    },
+    "assets/scene/gaussians_00.npz": {
+      "sha256": "9e3a2bd807ee22d81de404dd5fd5b46226bd9decabe92587f560a3eacc4f5474",
+      "size_bytes": 42574830
+    },
+    "assets/scene/gaussians_01.npz": {
+      "sha256": "2c6d437baed3c09826300400831864f638245535e7ac2ad4afe52de60de7dfff",
+      "size_bytes": 42550533
+    },
+    "assets/scene/gaussians_02.npz": {
+      "sha256": "8f3b8880281c46b792ae23c12aed8671dcc079d7ecce75b19faa2600ddefa39b",
+      "size_bytes": 32621949
+    }
+  }
+}

@@ -2,6 +2,11 @@
 
 [English](README.md) | 简体中文
 
+## 实验室最小 Demo 入口
+
+安装与运行步骤见 [SETUP_GUIDE.md](SETUP_GUIDE.md)，示例功能与产物见
+[DEMO_README.md](DEMO_README.md)。环境配置、依赖、脚本和输入数据均位于本项目目录内。
+
 ## 任务目标
 
 自主采集并重建一个真实场景，在 3D Gaussian Splatting（3D-GS）场景中加入机器狗、目标点和障碍物。编写程序生成多条候选轨迹，选择其中一条，使机器狗沿该轨迹绕过障碍物并到达目标点，完成可运行、可复现的导航仿真。

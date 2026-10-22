@@ -1,0 +1,5 @@
+[demo]
+asset_manifest = "assets/asset_manifest.json"
+scene_cache = "outputs/cache/laboratory.ply"
+trajectory_config = "trajectories_lab.toml"
+animation_config = "animation_lab.toml"

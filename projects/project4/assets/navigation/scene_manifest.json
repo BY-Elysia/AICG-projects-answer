@@ -1,0 +1,66 @@
+{
+  "contract_version": 1,
+  "producer": "build-scene",
+  "source_las": {
+    "path": "test1.las",
+    "size_bytes": 1109551463,
+    "sha256": "a0689588bbcbd19e6f122eb2f13414d0bd7618008292183f0cef1c217fab7092",
+    "bundled": false
+  },
+  "scene_model": "scene_model.npz",
+  "scene_model_sha256": "9e8f1c9af6e0d4abe23871be388598e7d28f1c4ff476cd5326aace11a6aad3e6",
+  "floor_y": 0.9338472222222223,
+  "axis_transform": "zup-to-yup",
+  "bounds_xz": {
+    "min": [
+      -52.9236946105957,
+      -7.200506687164307
+    ],
+    "max": [
+      18.6993053894043,
+      8.664493312835694
+    ]
+  },
+  "world_bounds": {
+    "x_min": -52.9236946105957,
+    "x_max": 18.6993053894043,
+    "z_min": -7.200506687164307,
+    "z_max": 8.664493312835694,
+    "source": "las_header"
+  },
+  "grid": {
+    "resolution_m": 0.08,
+    "width": 897,
+    "height": 200
+  },
+  "config": {
+    "scene": {
+      "axis_transform": "zup-to-yup",
+      "floor_y_override": null,
+      "enable_roi_crop": false,
+      "roi_center_xz": null,
+      "roi_size_xz": null,
+      "floor_search_y_min": 0.0,
+      "floor_search_y_max": 3.0,
+      "resolution_m": 0.08,
+      "ground_band_m": 0.08,
+      "min_points_per_cell": 2,
+      "min_ground_points_per_cell": 2,
+      "open_kernel_cells": 1,
+      "close_kernel_cells": 2,
+      "min_obstacle_component_cells": 8,
+      "ground_close_kernel_cells": 2,
+      "chunk_size": 1000000,
+      "max_stream_points": 0,
+      "floor_sample_limit": 1200000,
+      "floor_hist_bins": 180,
+      "floor_xy_resolution_m": 0.25
+    },
+    "robot": {
+      "radius_m": 0.3,
+      "height_m": 0.65,
+      "ground_margin_m": 0.06,
+      "safety_margin_m": 0.1
+    }
+  }
+}
