@@ -1,0 +1,43 @@
+{
+  "scope": "Reference laboratory route; kinematic execution, not physics or learned navigation",
+  "source_independence": "Runtime inputs bundled under projects/project4/assets; original LAS/PLY not opened by demo",
+  "original_route_length_m": 5.681341524794516,
+  "frame_count": 240,
+  "final_arrived": true,
+  "final_goal_distance_m": 0.0,
+  "foot_center_max_error_m": 4.0663184597278246e-08,
+  "elapsed_seconds": 38.23396646598121,
+  "gpu": "NVIDIA GeForce RTX 4090 Laptop GPU",
+  "peak_torch_allocated_mib": 349.59716796875,
+  "gaussian_count": 829269,
+  "capture_and_reconstruction_pipeline_included": false,
+  "same_goal_three_candidate_paths_included": false,
+  "three_test_cases_included": false,
+  "new_obstacle_configuration_included": false,
+  "project_local_environment": {
+    "interpreter": ".venv/bin/python",
+    "python": "3.10.19",
+    "packages": {
+      "torch": "2.4.0+cu121",
+      "gsplat": "1.5.3+pt24cu121",
+      "numpy": "1.26.4",
+      "scipy": "1.15.3",
+      "pybullet": "3.2.7",
+      "imageio": "2.37.0"
+    },
+    "pip_check": "No broken requirements found.",
+    "gpu_environment_check_passed": true,
+    "full_render_passed": true
+  },
+  "video_validation": {
+    "mp4": {
+      "width": 848,
+      "height": 480,
+      "r_frame_rate": "20/1",
+      "duration": "12.000000",
+      "nb_read_frames": "240"
+    },
+    "gif_stored_frames": 120,
+    "gif_duration_ms": 12000
+  }
+}

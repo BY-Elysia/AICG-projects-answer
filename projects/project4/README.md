@@ -2,6 +2,12 @@
 
 English | [简体中文](README-zh.md)
 
+## Runnable laboratory demo
+
+See [SETUP_GUIDE.md](SETUP_GUIDE.md) for installation and execution, and
+[DEMO_README.md](DEMO_README.md) for the demo scope and sample outputs.
+All dependency and environment configuration is kept in this project directory.
+
 ## Objective
 
 Collect data from and reconstruct a real environment. Add a robot dog, goal, and obstacles to the 3D Gaussian Splatting (3D-GS) scene. Write a program that generates multiple candidate trajectories, selects one, and simulates the robot moving around obstacles to reach the goal. The navigation simulation must be runnable and reproducible.

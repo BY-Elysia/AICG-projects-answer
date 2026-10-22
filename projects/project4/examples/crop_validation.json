@@ -1,0 +1,36 @@
+{
+  "comparison": "Original full 1,358,829-Gaussian rendering versus bundled 829,269-Gaussian rendering; original stored reference PNGs",
+  "frames": [
+    {
+      "frame": 0,
+      "mean_absolute_error_255": 0.0,
+      "pixels_changed_fraction": 0.0,
+      "p99_channel_error_255": 0.0
+    },
+    {
+      "frame": 70,
+      "mean_absolute_error_255": 0.0,
+      "pixels_changed_fraction": 0.0,
+      "p99_channel_error_255": 0.0
+    },
+    {
+      "frame": 140,
+      "mean_absolute_error_255": 0.0,
+      "pixels_changed_fraction": 0.0,
+      "p99_channel_error_255": 0.0
+    },
+    {
+      "frame": 205,
+      "mean_absolute_error_255": 0.0,
+      "pixels_changed_fraction": 0.0,
+      "p99_channel_error_255": 0.0
+    },
+    {
+      "frame": 239,
+      "mean_absolute_error_255": 0.0,
+      "pixels_changed_fraction": 0.0,
+      "p99_channel_error_255": 0.0
+    }
+  ],
+  "verified_environment": ".venv/bin/python (project-local GPU environment)"
+}
